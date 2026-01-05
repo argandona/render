@@ -459,9 +459,9 @@ class Suministro(models.Model):
         Calcula el monto automáticamente si no está definido
         """
         if self.tipo_suministro == 'ORIGINAL':
-            base = Decimal('150.00')
+            base = Decimal('0.00')
         else:
-            base = Decimal('200.00')
+            base = Decimal('00.00')
         
         # Ajuste por potencia si existe
         if self.potencia:
