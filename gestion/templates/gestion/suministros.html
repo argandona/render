@@ -1,0 +1,1298 @@
+<!-- gestion/suministros.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Suministros - Encossa{% endblock %}
+
+
+
+{% block content %}
+
+
+<div class="mb-4">
+    <h1 class="text-2xl font-bold text-gray-800">Gestión de Suministros</h1>
+    <p class="text-sm text-gray-600 mt-1">Administra los suministros por SST</p>
+</div>
+
+<!-- Mensajes -->
+{% if messages %}
+<div class="mb-6">
+    {% for message in messages %}
+    <div class="{% if message.tags == 'success' %}bg-green-100 border-green-400 text-green-700{% elif message.tags == 'error' %}bg-red-100 border-red-400 text-red-700{% else %}bg-yellow-100 border-yellow-400 text-yellow-700{% endif %} border px-4 py-3 rounded relative mb-2" role="alert">
+        <span class="block sm:inline">{{ message }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+
+<!-- Filtros compactos -->
+<div class="bg-white rounded-lg shadow p-4 mb-4">
+    <form method="GET" class="grid grid-cols-1 md:grid-cols-5 gap-2">
+        <!-- Buscar -->
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Buscar</label>
+            <input type="text" name="search" value="{{ search }}" 
+                   placeholder="Suministro, medidor..." 
+                   class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500">
+        </div>
+        
+        <!-- SST -->
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">SST</label>
+            <input type="text" name="sst" value="{{ sst_filter }}" 
+                   placeholder="Código SST..." 
+                   class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500">
+        </div>
+        
+        <!-- Estado -->
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Estado</label>
+            <select name="estado" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500">
+                <option value="">Todos</option>
+                {% for estado in estados %}
+                <option value="{{ estado.estado_suministro }}" {% if estado_filter == estado.estado_suministro %}selected{% endif %}>
+                    {{ estado.estado_suministro }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <!-- Distrito -->
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Distrito</label>
+            <select name="distrito" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500">
+                <option value="">Todos</option>
+                {% for distrito in distritos %}
+                <option value="{{ distrito.nombre_distrito }}" {% if distrito_filter == distrito.nombre_distrito %}selected{% endif %}>
+                    {{ distrito.nombre_distrito }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <!-- Botones -->
+        <div class="flex items-end space-x-1">
+            <button type="submit" class="flex-1 bg-blue-600 text-white px-3 py-1.5 text-sm rounded hover:bg-blue-700">
+                Buscar
+            </button>
+            <a href="{% url 'suministro_list' %}" class="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300">
+                Limpiar
+            </a>
+        </div>
+    </form>
+</div>
+
+
+<!-- ========== TARJETAS DE RESUMEN COMPACTAS ========== -->
+<div class="mb-6">
+    <!-- Grid más compacto -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+        
+        <!-- SST Ejecutadas -->
+        <div class="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-3">
+            <div class="flex flex-col items-center text-center">
+                <div class="bg-green-500 rounded-full p-1.5 mb-1">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <p class="text-xl font-bold text-gray-800">{{ sst_ejecutado }}</p>
+                <p class="text-xs text-gray-600 mt-0.5">SST Ejec.</p>
+            </div>
+        </div>
+
+        <!-- SST Admisibles -->
+        <div class="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3">
+            <div class="flex flex-col items-center text-center">
+                <div class="bg-blue-500 rounded-full p-1.5 mb-1">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                    </svg>
+                </div>
+                <p class="text-xl font-bold text-gray-800">{{ sst_admisible }}</p>
+                <p class="text-xs text-gray-600 mt-0.5">SST Adm.</p>
+            </div>
+        </div>
+
+        <!-- SST En Ejecución -->
+        <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200 rounded-lg p-3">
+            <div class="flex flex-col items-center text-center">
+                <div class="bg-yellow-500 rounded-full p-1.5 mb-1">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <p class="text-xl font-bold text-gray-800">{{ sst_en_ejecucion }}</p>
+                <p class="text-xs text-gray-600 mt-0.5">En Ejec.</p>
+            </div>
+        </div>
+
+        <!-- SST Pendientes -->
+        <div class="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-3">
+            <div class="flex flex-col items-center text-center">
+                <div class="bg-gray-500 rounded-full p-1.5 mb-1">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <p class="text-xl font-bold text-gray-800">{{ sst_pendiente }}</p>
+                <p class="text-xs text-gray-600 mt-0.5">SST Pend.</p>
+            </div>
+        </div>
+
+        <!-- Suministros Ejecutados -->
+        <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-lg p-3">
+            <div class="flex flex-col items-center text-center">
+                <div class="bg-emerald-500 rounded-full p-1.5 mb-1">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </div>
+                <p class="text-xl font-bold text-gray-800">{{ sum_ejecutado }}</p>
+                <p class="text-xs text-gray-600 mt-0.5">Sum. Ejec.</p>
+            </div>
+        </div>
+
+        <!-- Suministros Asignados -->
+        <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200 rounded-lg p-3">
+            <div class="flex flex-col items-center text-center">
+                <div class="bg-indigo-500 rounded-full p-1.5 mb-1">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                </div>
+                <p class="text-xl font-bold text-gray-800">{{ sum_asignado }}</p>
+                <p class="text-xs text-gray-600 mt-0.5">Sum. Asig.</p>
+            </div>
+        </div>
+
+        <!-- Suministros Devueltos -->
+        <div class="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-lg p-3">
+            <div class="flex flex-col items-center text-center">
+                <div class="bg-orange-500 rounded-full p-1.5 mb-1">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
+                    </svg>
+                </div>
+                <p class="text-xl font-bold text-gray-800">{{ sum_devuelto }}</p>
+                <p class="text-xs text-gray-600 mt-0.5">Sum. Dev.</p>
+            </div>
+        </div>
+
+        <!-- Total Suministros (ahora en la misma fila) -->
+        <div class="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-3 col-span-2 sm:col-span-4 lg:col-span-1">
+            <div class="flex items-center justify-center h-full">
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-gray-800">{{ total_suministros }}</p>
+                    <p class="text-xs text-gray-600 mt-0.5">Total Sum.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+<!-- ========== FIN TARJETAS COMPACTAS ========== --><!-- ========== FIN TARJETAS DE RESUMEN ========== -->
+
+<!-- ... resto de tu código (tabla, modales, scripts) ... -->
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- ... (tu código existente: mensajes, filtros, estadísticas) ... -->
+
+<!-- Tabla de suministros RESPONSIVE -->
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <!-- Controles de tabla responsive CON BOTÓN DE AGREGAR -->
+    <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center justify-between">
+        <div class="text-sm font-medium text-gray-700">
+            Total: {{ total_suministros }} suministros
+            {% if suministros_adicionales_count %}
+            <span class="ml-2 text-yellow-600">({{ suministros_adicionales_count }} adicionales)</span>
+            {% endif %}
+        </div>
+        
+        <div class="mt-2 sm:mt-0 flex items-center space-x-4">
+            <!-- Botones de vista -->
+            <div class="flex items-center">
+                <span class="text-sm text-gray-600 mr-2">Vista:</span>
+                <div class="flex rounded-lg overflow-hidden border border-gray-300">
+                    <button id="btnTableView" 
+                            class="px-3 py-1 bg-blue-600 text-white text-sm hover:bg-blue-700 focus:outline-none">
+                        Tabla
+                    </button>
+                    <button id="btnCardView" 
+                            class="px-3 py-1 bg-gray-200 text-gray-700 text-sm hover:bg-gray-300 focus:outline-none">
+                        Tarjetas
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Separador -->
+            <div class="h-6 w-px bg-gray-300"></div>
+
+            <!-- ✅ NUEVO: Botón para descargar Excel -->
+    <button onclick="descargarExcel()" 
+            class="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 flex items-center focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        Excel
+    </button>
+
+
+     <button onclick="descargarExcel()" 
+            class="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 flex items-center focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        Descargar para modulo
+    </button>
+            
+            <!-- Botón para agregar suministro adicional -->
+            <button onclick="abrirModalAgregarAdicional()" 
+                    class="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 flex items-center focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Agregar Suministro
+            </button>
+        </div>
+    </div>
+    
+
+    <!-- ========== MODAL PARA EDITAR SUMINISTRO ========== -->
+<div id="editModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="text-lg font-semibold text-gray-800">Editar Suministro</h3>
+            <button onclick="cerrarModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <form id="editForm" class="p-6 space-y-4">
+            {% csrf_token %}
+            <input type="hidden" id="edit_suministro_id" name="suministro_id">
+            
+            <!-- Información básica (solo lectura) -->
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-700 mb-3">Información del Suministro</h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">SST</label>
+                        <input type="text" id="edit_sst" readonly 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Suministro</label>
+                        <input type="text" id="edit_suministro" readonly 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100">
+                    </div>
+                </div>
+            </div>
+            
+
+            <!-- Agregar campo de monto -->
+
+            <!-- Campos editables -->
+            <div class="bg-blue-50 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-700 mb-3">Datos de Ejecución</h4>
+                
+                <div class="space-y-4">
+                    <!-- Estado -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Estado *</label>
+                        <select id="edit_estado" required 
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Seleccionar estado</option>
+                            {% for estado in estados %}
+                            <option value="{{ estado.id }}">{{ estado.estado_suministro }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Fecha y Ejecutado Por -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Fecha Ejecución
+                            </label>
+                            <input type="date" id="edit_fecha_ejecucion" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Ejecutado Por
+                            </label>
+                            <input type="text" id="edit_ejecutado_por" 
+                                   placeholder="Nombre del técnico"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+
+                    <div>
+    <label class="block text-sm font-medium text-gray-700 mb-2">
+        Monto (S/)
+    </label>
+    <div class="relative">
+        <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">S/</span>
+        <input type="number" id="edit_monto" step="0.01" min="0"
+               placeholder="0.00"
+               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+    </div>
+</div>
+                    
+                    <!-- Observaciones -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Observaciones del Contratista
+                        </label>
+                        <textarea id="edit_observacion" rows="3"
+                                  placeholder="Observaciones adicionales..."
+                                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Botones -->
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <button type="button" onclick="cerrarModal()" 
+                        class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                    Cancelar
+                </button>
+                <button type="submit" 
+                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal de detalle (opcional, para el botón "Ver") -->
+<div id="detailModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="text-lg font-semibold text-gray-800">Detalles del Suministro</h3>
+            <button onclick="cerrarDetailModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <div id="detailContent" class="p-6">
+            <!-- El contenido se cargará dinámicamente -->
+        </div>
+    </div>
+</div>
+
+
+    <!-- Vista de tabla (para escritorio) -->
+    <div id="tableView" class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 hidden md:table">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SST</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Suministro</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Medidor</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto (S/)</th> <!-- ✅ NUEVO --> 
+                     
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fase</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dirección</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distrito</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Ejec.</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ejecutado Por</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for suministro in suministros %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.item }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm">
+                        <span class="text-blue-600 font-medium">{{ suministro.sst.sst }}</span>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        <div class="flex items-center">
+                            {{ suministro.suministro }}
+                            {% if suministro.tipo_suministro == 'ADICIONAL' %}
+                                <span class="ml-2 px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                                    ADIC
+                                </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {% if suministro.tipo_suministro == 'ADICIONAL' %}
+                            <span class="text-yellow-600">Adicional</span>
+                        {% else %}
+                            <span class="text-blue-600">Original</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.medidor|default:"-" }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            {% if suministro.estado_suministro.estado_suministro == 'Ejecutado' %}bg-green-100 text-green-800
+                            {% elif suministro.estado_suministro.estado_suministro == 'Pendiente' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ suministro.estado_suministro.estado_suministro }}
+                        </span>
+                    </td>
+
+                    <!-- ✅ NUEVA CELDA: MONTO -->
+        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+            <span class="font-medium text-green-600">
+                S/ {{ suministro.monto|default:"0.00"|floatformat:2 }}
+            </span>
+        </td>
+
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.fase|default:"-" }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.contacto|default:"-" }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900 max-w-xs truncate" title="{{ suministro.direccion }}">
+                        {{ suministro.direccion|truncatechars:30 }}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.distrito.nombre_distrito }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {{ suministro.fecha_ejecucion|date:"d/m/Y"|default:"-" }}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.ejecutado_por|default:"-" }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">
+    <button onclick="abrirModalEditar(
+        {{ suministro.id }}, 
+        '{{ suministro.sst.sst }}', 
+        '{{ suministro.suministro }}', 
+        {{ suministro.estado_suministro.id }},
+        '{{ suministro.fecha_ejecucion|date:"Y-m-d"|default:"" }}',
+        '{{ suministro.ejecutado_por|default:"" }}',
+        '{{ suministro.observacion_contratista|default:"" }}',
+        '{{ suministro.monto|default:"0.00" }}'  <!-- ✅ AGREGAR MONTO -->
+
+    )" class="text-green-600 hover:text-green-900 mr-3 hover:underline">
+        Editar
+    </button>
+    <button onclick="verDetalle({{ suministro.id }})" class="text-blue-600 hover:text-blue-900 mr-3 hover:underline">
+        Ver
+    </button>
+    <button onclick="eliminarSuministro({{ suministro.id }}, '{{ suministro.suministro|escapejs }}')" class="text-red-600 hover:text-red-900 hover:underline">
+        Eliminar
+    </button>
+</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="13" class="px-6 py-8 text-center text-gray-500">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <p class="mt-2">No hay suministros registrados</p>
+                        <button onclick="abrirModalAgregarAdicional()" 
+                                class="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 inline-flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                            Agregar primer suministro
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- ========== VISTA DE TARJETAS (PARA MÓVIL) - COMPLETA ========== -->
+    <div id="cardView" class="md:hidden p-4 space-y-4">
+        {% for suministro in suministros %}
+        <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
+            <!-- Encabezado de tarjeta -->
+            <div class="flex justify-between items-start mb-3">
+                <div class="flex flex-wrap gap-2">
+                    <!-- Estado -->
+                    <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full 
+                        {% if suministro.estado_suministro.estado_suministro == 'Ejecutado' %}bg-green-100 text-green-800
+                        {% elif suministro.estado_suministro.estado_suministro == 'Pendiente' %}bg-yellow-100 text-yellow-800
+                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {{ suministro.estado_suministro.estado_suministro }}
+                    </span>
+                    
+                    <!-- Tipo (Adicional/Original) -->
+                    {% if suministro.tipo_suministro == 'ADICIONAL' %}
+                    <span class="inline-block px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                        ADICIONAL
+                    </span>
+                    {% else %}
+                    <span class="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                        ORIGINAL
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="text-sm text-gray-500">Item {{ suministro.item }}</div>
+            </div>
+            
+            <!-- Información principal -->
+            <div class="space-y-3">
+                <!-- SST y Suministro -->
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <span class="text-xs font-medium text-gray-600 block">SST:</span>
+                        <span class="text-sm text-gray-900 font-medium">{{ suministro.sst.sst }}</span>
+                    </div>
+                    <div>
+                        <span class="text-xs font-medium text-gray-600 block">Suministro:</span>
+                        <span class="text-sm text-gray-900">{{ suministro.suministro }}</span>
+                    </div>
+                </div>
+                
+                <!-- Medidor y Fase -->
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <span class="text-xs font-medium text-gray-600 block">Medidor:</span>
+                        <span class="text-sm text-gray-900">{{ suministro.medidor|default:"-" }}</span>
+                    </div>
+                    <div>
+                        <span class="text-xs font-medium text-gray-600 block">Fase:</span>
+                        <span class="text-sm text-gray-900">{{ suministro.fase|default:"-" }}</span>
+                    </div>
+                </div>
+                
+                <!-- Distrito -->
+                <div>
+                    <span class="text-xs font-medium text-gray-600 block">Distrito:</span>
+                    <span class="text-sm text-gray-900">{{ suministro.distrito.nombre_distrito }}</span>
+                </div>
+                
+                <!-- Dirección -->
+                <div>
+                    <span class="text-xs font-medium text-gray-600 block">Dirección:</span>
+                    <span class="text-sm text-gray-900 block truncate" title="{{ suministro.direccion }}">
+                        {{ suministro.direccion|truncatechars:50 }}
+                    </span>
+                </div>
+                
+                <!-- Contacto y Teléfono -->
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <span class="text-xs font-medium text-gray-600 block">Contacto:</span>
+                        <span class="text-sm text-gray-900">{{ suministro.contacto|default:"-" }}</span>
+                    </div>
+                    <div>
+                        <span class="text-xs font-medium text-gray-600 block">Teléfono:</span>
+                        <span class="text-sm text-gray-900">{{ suministro.telefono|default:"-" }}</span>
+                    </div>
+                </div>
+                
+                <!-- Fechas importantes -->
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <span class="text-xs font-medium text-gray-600 block">Fecha Ejec.:</span>
+                        <span class="text-sm text-gray-900">{{ suministro.fecha_ejecucion|date:"d/m/Y"|default:"-" }}</span>
+                    </div>
+                    <div>
+                        <span class="text-xs font-medium text-gray-600 block">Ejecutado por:</span>
+                        <span class="text-sm text-gray-900">{{ suministro.ejecutado_por|default:"-" }}</span>
+                    </div>
+                </div>
+                
+                <!-- Motivo (solo para adicionales) -->
+                {% if suministro.tipo_suministro == 'ADICIONAL' and suministro.motivo_adicional %}
+                <div class="mt-2 pt-3 border-t border-gray-100">
+                    <span class="text-xs font-medium text-gray-600 block">Motivo adicional:</span>
+                    <span class="text-sm text-gray-900 italic">"{{ suministro.motivo_adicional|truncatechars:80 }}"</span>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Acciones -->
+            <!-- Acciones -->
+<div class="flex justify-end space-x-2 mt-4 pt-3 border-t border-gray-100">
+    <button onclick="verDetalle({{ suministro.id }})" 
+            class="text-sm text-blue-600 hover:text-blue-900 px-3 py-1 border border-blue-200 rounded hover:bg-blue-50 transition-colors duration-200">
+        Ver
+    </button>
+    <button onclick="abrirModalEditar(
+    {{ suministro.id }}, 
+    '{{ suministro.sst.sst }}', 
+    '{{ suministro.suministro }}', 
+    {{ suministro.estado_suministro.id }},
+    '{{ suministro.fecha_ejecucion|date:"Y-m-d"|default:"" }}',
+    '{{ suministro.ejecutado_por|default:"" }}',
+    '{{ suministro.observacion_contratista|default:"" }}',
+    '{{ suministro.monto|default:"0.00" }}'  <!-- ✅ AGREGAR MONTO -->
+)" class="text-sm text-green-600 hover:text-green-900 px-3 py-1 border border-green-200 rounded hover:bg-green-50 transition-colors duration-200">
+    Editar
+</button>
+    <button onclick="eliminarSuministro({{ suministro.id }}, '{{ suministro.suministro|escapejs }}')" 
+            class="text-sm text-red-600 hover:text-red-900 px-3 py-1 border border-red-200 rounded hover:bg-red-50 transition-colors duration-200">
+        Eliminar
+    </button>
+</div>
+        </div>
+        {% empty %}
+        <div class="text-center py-8 text-gray-500">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <p class="mt-2">No hay suministros registrados</p>
+            <button onclick="abrirModalAgregarAdicional()" 
+                    class="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 inline-flex items-center transition-colors duration-200">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Agregar primer suministro
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    <!-- ========== FIN VISTA DE TARJETAS ========== -->
+</div>
+
+<!-- ========== MODAL PARA AGREGAR SUMINISTRO ADICIONAL ========== -->
+<div id="addModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="text-lg font-semibold text-gray-800">Agregar Suministro Adicional</h3>
+            <button onclick="cerrarAddModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <form id="addForm" class="p-6 space-y-4">
+            {% csrf_token %}
+            
+            <!-- Información de SST -->
+            <div class="bg-blue-50 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-700 mb-3">Seleccionar SST</h4>
+                
+                <div>
+
+
+
+        <div class="relative">
+    <input type="text" id="add_sst" required 
+           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+           placeholder="Buscar SST por código o dirección..."
+           autocomplete="off">
+    <!-- ¡ESTO ES CRÍTICO! Campo oculto para el ID -->
+    <input type="hidden" id="add_sst_id" name="sst_id">
+    <!-- Contenedor para resultados -->
+    <div id="sstResults" class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg hidden max-h-60 overflow-y-auto"></div>
+</div>
+
+
+
+<!-- Agregar campo de monto -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+    <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+            Monto (S/)
+        </label>
+        <div class="relative">
+            <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">S/</span>
+            <input type="number" id="add_monto" step="0.01" min="0"
+                   placeholder="0.00"
+                   class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+        </div>
+        <p class="text-xs text-gray-500 mt-1">Dejar en 0.00 para cálculo automático</p>
+    </div>
+
+                </div>
+                
+                <!-- Información de la SST seleccionada -->
+                <div id="sstInfo" class="mt-4 hidden space-y-2">
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                            <span class="font-medium text-gray-600">Dirección:</span>
+                            <span id="sstDireccion" class="text-gray-800 ml-2 block truncate"></span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-600">Distrito:</span>
+                            <span id="sstDistrito" class="text-gray-800 ml-2"></span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-600">Estado:</span>
+                            <span id="sstEstado" class="text-gray-800 ml-2"></span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-600">Total suministros:</span>
+                            <span id="sstTotalSum" class="text-gray-800 ml-2"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Información del suministro -->
+            <div class="bg-green-50 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-700 mb-3">Información del Suministro Adicional</h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Suministro *</label>
+                        <div class="flex">
+                            <span class="inline-flex items-center px-3 py-2 border border-r-0 border-gray-300 bg-gray-100 text-gray-500 rounded-l-lg text-sm">
+                                SST-
+                            </span>
+                            <input type="text" id="add_suministro" required 
+                                   placeholder="Ej: 001-AD001" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <p class="mt-1 text-xs text-gray-500" id="sugerenciaTexto"></p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Estado *</label>
+                        <select id="add_estado_suministro" required 
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Seleccionar estado</option>
+                            {% for estado in estados %}
+                            <option value="{{ estado.id }}">{{ estado.estado_suministro }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Motivo del suministro adicional -->
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Motivo del Suministro Adicional *
+                    </label>
+                    <textarea id="add_motivo_adicional" rows="3" required
+                              placeholder="Explique por qué se agrega este suministro adicional..."
+                              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+                
+                <!-- Ejecución -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Fecha Ejecución
+                        </label>
+                        <input type="date" id="add_fecha_ejecucion" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Ejecutado Por
+                        </label>
+                        <input type="text" id="add_ejecutado_por" 
+                               placeholder="Nombre del técnico"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                
+                <!-- Contacto -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Contacto
+                        </label>
+                        <input type="text" id="add_contacto" 
+                               placeholder="Nombre del contacto"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Teléfono
+                        </label>
+                        <input type="tel" id="add_telefono" 
+                               placeholder="Número de teléfono"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                
+                <!-- Observaciones -->
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Observaciones del Contratista
+                    </label>
+                    <textarea id="add_observacion_contratista" rows="2"
+                              placeholder="Observaciones adicionales..."
+                              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+            </div>
+            
+            <!-- Botones -->
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <button type="button" onclick="cerrarAddModal()" 
+                        class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                    Cancelar
+                </button>
+                <button type="submit" 
+                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    Guardar Suministro
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ... (resto de tus modales existentes: detailModal, editModal) ... -->
+
+<script>
+// ========== FUNCIONES EXISTENTES ==========
+
+// Alternar entre vista de tabla y tarjetas
+document.getElementById('btnTableView').addEventListener('click', function() {
+    document.getElementById('tableView').classList.remove('hidden');
+    document.getElementById('cardView').classList.add('hidden');
+    this.classList.add('bg-blue-600', 'text-white');
+    this.classList.remove('bg-gray-200', 'text-gray-700');
+    document.getElementById('btnCardView').classList.remove('bg-blue-600', 'text-white');
+    document.getElementById('btnCardView').classList.add('bg-gray-200', 'text-gray-700');
+});
+
+document.getElementById('btnCardView').addEventListener('click', function() {
+    document.getElementById('tableView').classList.add('hidden');
+    document.getElementById('cardView').classList.remove('hidden');
+    this.classList.add('bg-blue-600', 'text-white');
+    this.classList.remove('bg-gray-200', 'text-gray-700');
+    document.getElementById('btnTableView').classList.remove('bg-blue-600', 'text-white');
+    document.getElementById('btnTableView').classList.add('bg-gray-200', 'text-gray-700');
+});
+
+// Detectar tamaño de pantalla y mostrar vista apropiada
+function checkScreenSize() {
+    if (window.innerWidth < 768) {
+        // En móvil, mostrar vista de tarjetas por defecto
+        document.getElementById('tableView').classList.add('hidden');
+        document.getElementById('cardView').classList.remove('hidden');
+        document.getElementById('btnTableView').classList.remove('bg-blue-600', 'text-white');
+        document.getElementById('btnTableView').classList.add('bg-gray-200', 'text-gray-700');
+        document.getElementById('btnCardView').classList.add('bg-blue-600', 'text-white');
+        document.getElementById('btnCardView').classList.remove('bg-gray-200', 'text-gray-700');
+    } else {
+        // En escritorio, mostrar tabla por defecto
+        document.getElementById('tableView').classList.remove('hidden');
+        document.getElementById('cardView').classList.add('hidden');
+        document.getElementById('btnTableView').classList.add('bg-blue-600', 'text-white');
+        document.getElementById('btnTableView').classList.remove('bg-gray-200', 'text-gray-700');
+        document.getElementById('btnCardView').classList.remove('bg-blue-600', 'text-white');
+        document.getElementById('btnCardView').classList.add('bg-gray-200', 'text-gray-700');
+    }
+}
+
+// Ejecutar al cargar y al redimensionar
+window.addEventListener('load', checkScreenSize);
+window.addEventListener('resize', checkScreenSize);
+
+// Funciones para modales existentes
+function abrirModalEditar(suministroId, sst, suministro, estadoId, fechaEjecucion, ejecutadoPor, observacion,monto) {
+    document.getElementById('edit_suministro_id').value = suministroId;
+    document.getElementById('edit_sst').value = sst;
+    document.getElementById('edit_suministro').value = suministro;
+    document.getElementById('edit_estado').value = estadoId;
+    document.getElementById('edit_fecha_ejecucion').value = fechaEjecucion || '';
+    document.getElementById('edit_ejecutado_por').value = ejecutadoPor || '';
+    document.getElementById('edit_observacion').value = observacion || '';
+    document.getElementById('edit_monto').value = monto || '0.00';    
+    document.getElementById('editModal').classList.remove('hidden');
+}
+
+function cerrarModal() {
+    document.getElementById('editModal').classList.add('hidden');
+}
+
+function verDetalle(suministroId) {
+    // En un caso real, aquí harías una petición AJAX para obtener los detalles
+    // Por ahora, mostramos un mensaje simple
+    document.getElementById('detailContent').innerHTML = `
+        <div class="space-y-3">
+            <div class="flex">
+                <span class="w-32 font-medium text-gray-600">Cargando detalles...</span>
+            </div>
+        </div>
+    `;
+    document.getElementById('detailModal').classList.remove('hidden');
+}
+
+function cerrarDetailModal() {
+    document.getElementById('detailModal').classList.add('hidden');
+}
+
+// Cerrar modales existentes al hacer clic fuera
+document.getElementById('editModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        cerrarModal();
+    }
+});
+
+document.getElementById('detailModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        cerrarDetailModal();
+    }
+});
+
+// Manejar envío del formulario de edición
+document.getElementById('editForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const suministroId = document.getElementById('edit_suministro_id').value;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    const data = {
+        estado_suministro: document.getElementById('edit_estado').value,
+        fecha_ejecucion: document.getElementById('edit_fecha_ejecucion').value,
+        ejecutado_por: document.getElementById('edit_ejecutado_por').value,
+        observacion_contratista: document.getElementById('edit_observacion').value,
+        // ✅ AGREGAR MONTO
+        monto: document.getElementById('edit_monto').value
+    };
+
+    if (data.monto) {
+        const montoNum = parseFloat(data.monto);
+        if (isNaN(montoNum) || montoNum < 0) {
+            alert('❌ El monto debe ser un número válido mayor o igual a 0');
+            return;
+        }
+    }
+    
+    try {
+        const response = await fetch(`/suministros/${suministroId}/actualizar/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Suministro actualizado correctamente');
+            location.reload();
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ Error al actualizar: ' + error);
+    }
+});
+
+// ========== NUEVAS FUNCIONES PARA AGREGAR SUMINISTRO ADICIONAL ==========
+
+function abrirModalAgregarAdicional() {
+    // Limpiar formulario
+    document.getElementById('addForm').reset();
+    document.getElementById('sstInfo').classList.add('hidden');
+    document.getElementById('add_suministro').placeholder = 'Ej: 001-AD001';
+    document.getElementById('sugerenciaTexto').textContent = '';
+    
+    document.getElementById('addModal').classList.remove('hidden');
+}
+
+function cerrarAddModal() {
+    document.getElementById('addModal').classList.add('hidden');
+}
+
+// Cargar información de la SST seleccionada
+
+
+
+
+// Cerrar modal de agregar al hacer clic fuera
+document.getElementById('addModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        cerrarAddModal();
+    }
+});
+
+// Manejar envío del formulario de agregar
+document.getElementById('addForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    // Validaciones básicas
+    if (!document.getElementById('add_sst').value) {
+        alert('Por favor, seleccione una SST');
+        return;
+    }
+    
+    if (!document.getElementById('add_suministro').value.trim()) {
+        alert('Por favor, ingrese el número de suministro');
+        return;
+    }
+    
+    if (!document.getElementById('add_estado_suministro').value) {
+        alert('Por favor, seleccione un estado');
+        return;
+    }
+    
+    if (!document.getElementById('add_motivo_adicional').value.trim()) {
+        alert('Por favor, ingrese el motivo del suministro adicional');
+        return;
+    }
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    const data = {
+        sst_id: document.getElementById('add_sst_id').value,
+        suministro: document.getElementById('add_suministro').value.trim(),
+        estado_suministro: document.getElementById('add_estado_suministro').value,
+        motivo_adicional: document.getElementById('add_motivo_adicional').value.trim(),
+        fecha_ejecucion: document.getElementById('add_fecha_ejecucion').value,
+        ejecutado_por: document.getElementById('add_ejecutado_por').value.trim(),
+        contacto: document.getElementById('add_contacto').value.trim(),
+        telefono: document.getElementById('add_telefono').value.trim(),
+        observacion_contratista: document.getElementById('add_observacion_contratista').value.trim(),
+        // ✅ AGREGAR MONTO
+        monto: document.getElementById('add_monto').value || '0.00'
+    };
+    
+    try {
+        // Mostrar loading
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Guardando...';
+        submitBtn.disabled = true;
+        
+        const response = await fetch('{% url "agregar_suministro_adicional" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ ' + result.message);
+            cerrarAddModal();
+            // Recargar la página para mostrar el nuevo suministro
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            alert('❌ Error: ' + result.message);
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    } catch (error) {
+        alert('❌ Error al conectar con el servidor: ' + error);
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.innerHTML = 'Guardar Suministro';
+        submitBtn.disabled = false;
+    }
+});
+
+// ========== FUNCIÓN PARA ELIMINAR SUMINISTRO ==========
+async function eliminarSuministro(suministroId, nombreSuministro) {
+    // Confirmar eliminación
+    const confirmar = confirm(
+        `⚠️ ¿Estás seguro de eliminar el suministro "${nombreSuministro}"?\n\n` +
+        `Esta acción NO se puede deshacer.\n\n` +
+        `El estado de la SST se actualizará automáticamente.`
+    );
+    
+    if (!confirmar) {
+        return;
+    }
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    try {
+        const response = await fetch(`/suministros/${suministroId}/eliminar/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ ' + result.message);
+            location.reload();
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ Error al eliminar: ' + error);
+    }
+}
+
+
+// Autocompletado de SST
+document.getElementById('add_sst').addEventListener('input', async function(e) {
+    const query = this.value.trim();
+    const resultsDiv = document.getElementById('sstResults');
+    
+    // Si el campo está vacío o tiene menos de 2 caracteres
+    if (query.length < 2) {
+        resultsDiv.classList.add('hidden');
+        // ¡IMPORTANTE! Limpiar el campo oculto
+        document.getElementById('add_sst_id').value = '';
+        // Ocultar información de SST
+        document.getElementById('sstInfo').classList.add('hidden');
+        return;
+    }
+
+
+    
+    if (query.length < 2) {
+        resultsDiv.classList.add('hidden');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`{% url 'buscar_sst' %}?q=${encodeURIComponent(query)}`);
+        const result = await response.json();
+        
+        if (result.success && result.data.length > 0) {
+            let html = '';
+            result.data.forEach(sst => {
+                html += `
+                    <div class="sst-result-item px-4 py-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                         data-id="${sst.id}"
+                         data-sst="${sst.sst}"
+                         data-direccion="${sst.direccion}"
+                         data-distrito="${sst.distrito}"
+                         data-estado="${sst.estado}"
+                         data-total-suministros="${sst.total_suministros}">
+                        <div class="font-medium text-gray-800">${sst.sst}</div>
+                        <div class="text-sm text-gray-600 truncate">${sst.direccion}</div>
+                        <div class="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>${sst.distrito}</span>
+                            <span>Suministros: ${sst.total_suministros}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            resultsDiv.innerHTML = html;
+            resultsDiv.classList.remove('hidden');
+            
+            // Agregar eventos a los resultados
+            document.querySelectorAll('.sst-result-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    
+                    const sstId = this.getAttribute('data-id');
+                    const sstCode = this.getAttribute('data-sst');
+                    const direccion = this.getAttribute('data-direccion');
+                    const distrito = this.getAttribute('data-distrito');
+                    const estado = this.getAttribute('data-estado');
+                    const totalSuministros = this.getAttribute('data-total-suministros');
+                    
+                    // Actualizar campos
+                    document.getElementById('add_sst').value = sstCode;
+                    document.getElementById('add_sst_id').value = sstId;
+                    
+                    // Ocultar resultados
+                    resultsDiv.classList.add('hidden');
+                    
+                    // Mostrar información de la SST
+                    const sstInfoDiv = document.getElementById('sstInfo');
+                    sstInfoDiv.innerHTML = `
+                        <div class="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                                <span class="font-medium text-gray-600">Dirección:</span>
+                                <span class="text-gray-800 ml-2 block truncate" title="${direccion}">${direccion.substring(0, 50)}${direccion.length > 50 ? '...' : ''}</span>
+                            </div>
+                            <div>
+                                <span class="font-medium text-gray-600">Distrito:</span>
+                                <span class="text-gray-800 ml-2">${distrito}</span>
+                            </div>
+                            <div>
+                                <span class="font-medium text-gray-600">Estado:</span>
+                                <span class="text-gray-800 ml-2">${estado}</span>
+                            </div>
+                            <div>
+                                <span class="font-medium text-gray-600">Total suministros:</span>
+                                <span class="text-gray-800 ml-2">${totalSuministros}</span>
+                            </div>
+                        </div>
+                    `;
+                    sstInfoDiv.classList.remove('hidden');
+                    
+                    // Generar sugerencia de suministro
+                    const adicionalesCount = parseInt(totalSuministros.split('/')[1] || 0);
+                    const sugerencia = `${sstCode}-AD${(adicionalesCount + 1).toString().padStart(3, '0')}`;
+                    document.getElementById('add_suministro').value = sugerencia;
+                    document.getElementById('sugerenciaTexto').textContent = 
+                        `Sugerencia automática (${adicionalesCount} adicionales existentes)`;
+                });
+            });
+        } else {
+            resultsDiv.innerHTML = '<div class="px-4 py-3 text-gray-500">No se encontraron SST</div>';
+            resultsDiv.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error en autocompletado:', error);
+    }
+});
+
+// Ocultar resultados cuando se hace clic fuera
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.relative')) {
+        document.getElementById('sstResults').classList.add('hidden');
+    }
+});
+
+
+// ========== FUNCIÓN PARA DESCARGAR EXCEL ==========
+function descargarExcel() {
+    // Obtener los valores actuales de los filtros
+    const sst = document.querySelector('input[name="sst"]')?.value || '';
+    const distrito = document.querySelector('select[name="distrito"]')?.value || '';
+    const estado = document.querySelector('select[name="estado"]')?.value || '';
+    const search = document.querySelector('input[name="search"]')?.value || '';
+    
+    // Construir la URL con los mismos filtros
+    let url = '{% url "descargar_excel_suministros" %}?';
+    
+    const params = [];
+    if (sst) params.push(`sst=${encodeURIComponent(sst)}`);
+    if (distrito) params.push(`distrito=${encodeURIComponent(distrito)}`);
+    if (estado) params.push(`estado=${encodeURIComponent(estado)}`);
+    if (search) params.push(`search=${encodeURIComponent(search)}`);
+    
+    if (params.length > 0) {
+        url += params.join('&');
+    }
+    
+    console.log('Descargando Excel desde:', url);
+    
+    // Crear un enlace invisible y hacer clic
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `suministros_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Opcional: mostrar mensaje de éxito
+    alert('✅ Descargando Excel... El archivo se guardará automáticamente.');
+}
+</script>
+
+{% endblock %}

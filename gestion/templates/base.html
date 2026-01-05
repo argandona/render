@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Encossa - Sistema de Gestión{% endblock %}</title>
+    
+    {% load static %}
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CSS personalizado -->
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    
+    <style>
+        /* Animaciones y transiciones */
+        .mobile-menu {
+            transition: transform 0.3s ease-in-out;
+        }
+        
+        .dropdown-menu {
+            transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+        }
+        
+        @media (max-width: 768px) {
+            .nav-link-text {
+                display: none;
+            }
+            .nav-link-icon {
+                margin-right: 0;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .logo-text {
+                font-size: 1.1rem;
+            }
+            .user-name {
+                display: none;
+            }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-gray-50">
+    
+    <!-- Header principal con navegación -->
+    <header class="sticky top-0 z-50 bg-white shadow-lg">
+        <!-- Barra de navegación principal -->
+        <nav class="border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <!-- Logo y menú hamburguesa (mobile) -->
+                    <div class="flex items-center">
+                        <!-- Botón menú móvil -->
+                        <button id="mobile-menu-button" class="md:hidden text-gray-500 hover:text-gray-700 focus:outline-none mr-3">
+                            <i class="fas fa-bars text-xl"></i>
+                        </button>
+                        
+                        <!-- Logo -->
+                        <div class="flex items-center">
+                            <div class="bg-blue-600 rounded-lg w-10 h-10 flex items-center justify-center shadow-md">
+                                <span class="text-white font-bold text-xl">E</span>
+                            </div>
+                            <a href="{% url 'dashboard' %}" class="ml-3 text-xl font-bold text-gray-800 logo-text">
+                                ENCOSSA
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Navegación de escritorio -->
+                    <div class="hidden md:flex items-center space-x-1">
+                        <a href="{% url 'dashboard' %}" 
+                           class="px-4 py-2 text-sm font-medium rounded-lg flex items-center {% if request.resolver_match.url_name == 'dashboard' %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-100{% endif %}">
+                            <i class="fas fa-tachometer-alt nav-link-icon mr-2"></i>
+                            <span class="nav-link-text">Dashboard</span>
+                        </a>
+                        
+                        <a href="{% url 'sst_list' %}" 
+                           class="px-4 py-2 text-sm font-medium rounded-lg flex items-center {% if 'sst' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-100{% endif %}">
+                            <i class="fas fa-list-alt nav-link-icon mr-2"></i>
+                            <span class="nav-link-text">SST</span>
+                        </a>
+                        
+                        <a href="{% url 'suministro_list' %}" 
+                           class="px-4 py-2 text-sm font-medium rounded-lg flex items-center {% if 'suministro' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-100{% endif %}">
+                            <i class="fas fa-tools nav-link-icon mr-2"></i>
+                            <span class="nav-link-text">Suministros</span>
+                        </a>
+                        
+                        <div class="relative group">
+                            <button class="px-4 py-2 text-sm font-medium rounded-lg flex items-center text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-users nav-link-icon mr-2"></i>
+                                <span class="nav-link-text">Empleados</span>
+                                <i class="fas fa-chevron-down ml-1 text-xs"></i>
+                            </button>
+                            <div class="absolute hidden group-hover:block bg-white shadow-lg rounded-lg mt-1 w-48 z-10">
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Lista</a>
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Programación</a>
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">EPPs</a>
+                            </div>
+                        </div>
+                        
+                        <div class="relative group">
+                            <button class="px-4 py-2 text-sm font-medium rounded-lg flex items-center text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-calendar-alt nav-link-icon mr-2"></i>
+                                <span class="nav-link-text">Programación</span>
+                                <i class="fas fa-chevron-down ml-1 text-xs"></i>
+                            </button>
+                            <div class="absolute hidden group-hover:block bg-white shadow-lg rounded-lg mt-1 w-48 z-10">
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Personal</a>
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Transporte</a>
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Insumos</a>
+                            </div>
+                        </div>
+                        
+                        <div class="relative group">
+                            <button class="px-4 py-2 text-sm font-medium rounded-lg flex items-center text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-chart-bar nav-link-icon mr-2"></i>
+                                <span class="nav-link-text">Reportes</span>
+                                <i class="fas fa-chevron-down ml-1 text-xs"></i>
+                            </button>
+                            <div class="absolute hidden group-hover:block bg-white shadow-lg rounded-lg mt-1 w-48 z-10">
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Ejecución</a>
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Costos</a>
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Productividad</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Usuario y acciones -->
+                    <div class="flex items-center space-x-4">
+                        <!-- Botón de notificaciones -->
+                        <button class="relative text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-bell text-lg"></i>
+                            <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+                        </button>
+                        
+                        <!-- Botón de búsqueda (solo móvil) -->
+                        <button class="text-gray-500 hover:text-gray-700 md:hidden">
+                            <i class="fas fa-search text-lg"></i>
+                        </button>
+                        
+                        <!-- Perfil de usuario -->
+                        <div class="relative group">
+                            <button class="flex items-center space-x-2 focus:outline-none">
+                                <div class="w-9 h-9 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md">
+                                    <span class="text-white font-semibold text-sm">
+                                        {{ user.first_name|first|upper }}{{ user.last_name|first|upper }}
+                                    </span>
+                                </div>
+                                <div class="hidden md:block text-left">
+                                    <p class="text-sm font-medium text-gray-800 user-name">{{ user.get_full_name|default:user.username }}</p>
+                                    <p class="text-xs text-gray-500">{{ user.groups.first|default:"Usuario" }}</p>
+                                </div>
+                                <i class="fas fa-chevron-down text-gray-400 text-sm hidden md:block"></i>
+                            </button>
+                            
+                            <!-- Dropdown de perfil -->
+                            <div class="absolute right-0 hidden group-hover:block bg-white shadow-lg rounded-lg mt-1 w-48 z-10">
+                                <div class="p-3 border-b border-gray-200">
+                                    <p class="font-semibold text-gray-800 text-sm">{{ user.get_full_name|default:user.username }}</p>
+                                    <p class="text-xs text-gray-500">{{ user.email|default:"No especificado" }}</p>
+                                </div>
+                                <div class="p-2">
+                                    <a href="{% url 'admin:index' %}" class="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded">
+                                        <i class="fas fa-cog mr-3 text-gray-500"></i>
+                                        <span>Administración</span>
+                                    </a>
+                                    <a href="#" class="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded">
+                                        <i class="fas fa-user-circle mr-3 text-gray-500"></i>
+                                        <span>Mi perfil</span>
+                                    </a>
+                                    <a href="#" class="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded">
+                                        <i class="fas fa-question-circle mr-3 text-gray-500"></i>
+                                        <span>Ayuda</span>
+                                    </a>
+                                </div>
+                                <div class="p-2 border-t border-gray-200">
+                                    <a href="{% url 'admin:logout' %}" class="flex items-center px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded">
+                                        <i class="fas fa-sign-out-alt mr-3"></i>
+                                        <span>Cerrar sesión</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Menú móvil (overlay) -->
+    <div id="mobile-menu" class="mobile-menu fixed inset-0 z-50 hidden">
+        <div class="fixed inset-0 bg-black bg-opacity-50" onclick="toggleMobileMenu()"></div>
+        <div class="fixed inset-y-0 left-0 max-w-xs w-full bg-white shadow-xl">
+            <div class="flex flex-col h-full">
+                <!-- Encabezado menú móvil -->
+                <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                    <div class="flex items-center">
+                        <div class="bg-blue-600 rounded-lg w-10 h-10 flex items-center justify-center shadow-md">
+                            <span class="text-white font-bold text-xl">E</span>
+                        </div>
+                        <span class="ml-3 text-lg font-bold text-gray-800">ENCOSSA</span>
+                    </div>
+                    <button onclick="toggleMobileMenu()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <!-- Perfil en móvil -->
+                <div class="p-4 border-b border-gray-200">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md">
+                            <span class="text-white font-semibold text-lg">
+                                {{ user.first_name|first|upper }}{{ user.last_name|first|upper }}
+                            </span>
+                        </div>
+                        <div>
+                            <p class="font-medium text-gray-800">{{ user.get_full_name|default:user.username }}</p>
+                            <p class="text-sm text-gray-500">{{ user.email|default:"Usuario" }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Navegación móvil -->
+                <div class="flex-1 overflow-y-auto py-4">
+                    <nav class="space-y-1 px-2">
+                        <a href="{% url 'dashboard' %}" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg">
+                            <i class="fas fa-tachometer-alt mr-3 text-lg text-gray-500"></i>
+                            <span>Dashboard</span>
+                        </a>
+                        
+                        <a href="{% url 'sst_list' %}" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg">
+                            <i class="fas fa-list-alt mr-3 text-lg text-gray-500"></i>
+                            <span>SST</span>
+                        </a>
+                        
+                        <a href="{% url 'suministro_list' %}" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg">
+                            <i class="fas fa-tools mr-3 text-lg text-gray-500"></i>
+                            <span>Suministros</span>
+                        </a>
+                        
+                        <div class="px-4 py-3">
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Empleados</p>
+                        </div>
+                        
+                        <a href="#" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg ml-4">
+                            <i class="fas fa-users mr-3 text-gray-400"></i>
+                            <span>Lista</span>
+                        </a>
+                        
+                        <a href="#" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg ml-4">
+                            <i class="fas fa-calendar mr-3 text-gray-400"></i>
+                            <span>Programación</span>
+                        </a>
+                        
+                        <div class="px-4 py-3">
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Programación</p>
+                        </div>
+                        
+                        <a href="#" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg ml-4">
+                            <i class="fas fa-user-clock mr-3 text-gray-400"></i>
+                            <span>Personal</span>
+                        </a>
+                        
+                        <a href="#" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg ml-4">
+                            <i class="fas fa-truck mr-3 text-gray-400"></i>
+                            <span>Transporte</span>
+                        </a>
+                        
+                        <div class="px-4 py-3">
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Reportes</p>
+                        </div>
+                        
+                        <a href="#" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg ml-4">
+                            <i class="fas fa-chart-line mr-3 text-gray-400"></i>
+                            <span>Ejecución</span>
+                        </a>
+                    </nav>
+                </div>
+                
+                <!-- Pie del menú móvil -->
+                <div class="p-4 border-t border-gray-200">
+                    <a href="{% url 'admin:index' %}" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg mb-2">
+                        <i class="fas fa-cog mr-3 text-gray-500"></i>
+                        <span>Administración</span>
+                    </a>
+                    <a href="{% url 'admin:logout' %}" class="flex items-center px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg">
+                        <i class="fas fa-sign-out-alt mr-3"></i>
+                        <span>Cerrar sesión</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido principal -->
+    <main class="container mx-auto px-4 py-8 mt-4">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white mt-12">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <p>&copy; 2025 Encossa. Todos los derechos reservados.</p>
+                </div>
+                <div class="flex space-x-4">
+                    <a href="#" class="text-gray-300 hover:text-white text-sm">Política de privacidad</a>
+                    <a href="#" class="text-gray-300 hover:text-white text-sm">Términos de servicio</a>
+                    <a href="#" class="text-gray-300 hover:text-white text-sm">Contacto</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // Función para alternar menú móvil
+        function toggleMobileMenu() {
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenu.classList.toggle('hidden');
+            document.body.style.overflow = mobileMenu.classList.contains('hidden') ? '' : 'hidden';
+        }
+        
+        // Inicializar eventos
+        document.addEventListener('DOMContentLoaded', function() {
+            // Botón menú móvil
+            document.getElementById('mobile-menu-button').addEventListener('click', toggleMobileMenu);
+            
+            // Cerrar menú móvil al hacer clic en enlace
+            document.querySelectorAll('#mobile-menu a').forEach(link => {
+                link.addEventListener('click', toggleMobileMenu);
+            });
+            
+            // Detectar scroll para header
+            const header = document.querySelector('header');
+            let lastScroll = 0;
+            
+            window.addEventListener('scroll', () => {
+                const currentScroll = window.pageYOffset;
+                
+                if (currentScroll > 100) {
+                    header.classList.add('shadow-lg');
+                } else {
+                    header.classList.remove('shadow-lg');
+                }
+                
+                lastScroll = currentScroll;
+            });
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
