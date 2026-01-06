@@ -1077,8 +1077,6 @@ def dashboard(request):
 
 # sst_app/views.py
 
-
-
 from datetime import datetime, timedelta
 from django.shortcuts import render
 from django.utils import timezone
@@ -1089,11 +1087,12 @@ from collections import defaultdict
 def reporte_productividad(request):
     """
     Reporte simplificado: Fechas (filas) x Ejecutores (columnas) = Montos
+    SIN FILTROS - Muestra el mes actual siempre
     """
     
-    # Parámetros
-    mes_seleccionado = request.GET.get('mes', timezone.now().strftime('%Y-%m'))
-    año, mes = map(int, mes_seleccionado.split('-'))
+    # Usar mes actual siempre
+    hoy = timezone.now().date()
+    año, mes = hoy.year, hoy.month
     
     # Calcular rango del mes
     primer_dia = datetime(año, mes, 1).date()
