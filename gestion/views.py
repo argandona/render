@@ -1080,9 +1080,42 @@ from django.shortcuts import render
 from django.db.models import Sum
 from gestion.models import Suministro
 
+#def reporte_productividad(request):
+   # Obtener todos los suministros que tienen ejecutado_por
+ #   suministros_con_ejecutor = Suministro.objects.exclude(
+  #      ejecutado_por__isnull=True
+   # ).exclude(
+    #    ejecutado_por=''
+    #)
+    
+    # Agrupar por ejecutor y sumar montos
+    #resultados = suministros_con_ejecutor.values('ejecutado_por').annotate(
+     #   total_monto=Sum('monto')
+    #).order_by('ejecutado_por')
+    
+    # Calcular total general
+    #total_general = sum(item['total_monto'] for item in resultados)
+    
+    #context = {
+      #  'resultados': resultados,
+     #   'total_general': total_general,
+    #}
+    
+    #return render(request, 'gestion/reporte_productividad.html', context)
+
+
+
+# sst_app/views.py
+from datetime import datetime, timedelta
+from django.shortcuts import render
+from django.utils import timezone
+from django.db.models import Sum
+from gestion.models import Suministro
+from collections import defaultdict
+
 def reporte_productividad(request):
     """
-    Reporte simple: Ejecutor y suma total de montos (sin filtros de fecha)
+    Reporte por semana y mes: Ejecutor x Semana = Montos
     """
     
     # Obtener todos los suministros que tienen ejecutado_por
@@ -1092,16 +1125,116 @@ def reporte_productividad(request):
         ejecutado_por=''
     )
     
-    # Agrupar por ejecutor y sumar montos
-    resultados = suministros_con_ejecutor.values('ejecutado_por').annotate(
-        total_monto=Sum('monto')
-    ).order_by('ejecutado_por')
+    # Obtener lista única de ejecutores (ordenados)
+    ejecutores = sorted(list(
+        suministros_con_ejecutor.values_list('ejecutado_por', flat=True).distinct()
+    ))
     
-    # Calcular total general
-    total_general = sum(item['total_monto'] for item in resultados)
+    # Agrupar suministros por mes y semana
+    # Primero, organizar por fecha
+    suministros_por_fecha = defaultdict(list)
+    for suministro in suministros_con_ejecutor:
+        if suministro.fecha_ejecucion:
+            fecha_key = suministro.fecha_ejecucion.strftime('%Y-%m')
+            suministros_por_fecha[fecha_key].append(suministro)
+    
+    # Ordenar meses (más reciente primero)
+    meses_ordenados = sorted(suministros_por_fecha.keys(), reverse=True)
+    
+    # Estructura para almacenar datos
+    datos_meses = []
+    
+    for mes_key in meses_ordenados:
+        # Parsear año y mes
+        año, mes = map(int, mes_key.split('-'))
+        
+        # Calcular rango del mes
+        primer_dia = datetime(año, mes, 1).date()
+        if mes == 12:
+            ultimo_dia = datetime(año + 1, 1, 1).date() - timedelta(days=1)
+        else:
+            ultimo_dia = datetime(año, mes + 1, 1).date() - timedelta(days=1)
+        
+        # Generar semanas del mes
+        semanas = []
+        dia_actual = primer_dia
+        while dia_actual <= ultimo_dia:
+            semana_inicio = dia_actual
+            semana_fin = min(dia_actual + timedelta(days=6), ultimo_dia)
+            semanas.append({
+                'inicio': semana_inicio,
+                'fin': semana_fin,
+                'label': f"{semana_inicio.strftime('%d/%m')} - {semana_fin.strftime('%d/%m')}",
+                'key': f"{semana_inicio.strftime('%Y-%m-%d')}_{semana_fin.strftime('%Y-%m-%d')}"
+            })
+            dia_actual = semana_fin + timedelta(days=1)
+        
+        # Filtrar suministros de este mes
+        suministros_mes = suministros_por_fecha[mes_key]
+        
+        # Crear matriz para este mes: {(semana_idx, ejecutor): monto}
+        matriz_data = defaultdict(float)
+        
+        for suministro in suministros_mes:
+            fecha = suministro.fecha_ejecucion
+            ejecutor = suministro.ejecutado_por.strip()
+            monto = float(suministro.monto or 0)
+            
+            # Encontrar en qué semana cae
+            for idx, semana in enumerate(semanas):
+                if semana['inicio'] <= fecha <= semana['fin']:
+                    matriz_data[(idx, ejecutor)] += monto
+                    break
+        
+        # Preparar matriz para este mes
+        matriz_mes = []
+        total_mes = 0
+        
+        for idx, semana in enumerate(semanas):
+            fila = {
+                'semana': semana['label'],
+                'montos': [],
+                'total_semana': 0
+            }
+            
+            total_semana = 0
+            for ejecutor in ejecutores:
+                monto = matriz_data.get((idx, ejecutor), 0)
+                fila['montos'].append(monto)
+                total_semana += monto
+            
+            fila['total_semana'] = total_semana
+            matriz_mes.append(fila)
+            total_mes += total_semana
+        
+        # Totales por ejecutor para este mes
+        totales_ejecutores_mes = []
+        for ejecutor in ejecutores:
+            total = sum(matriz_data.get((idx, ejecutor), 0) for idx in range(len(semanas)))
+            totales_ejecutores_mes.append(total)
+        
+        # Agregar datos del mes
+        datos_meses.append({
+            'mes_key': mes_key,
+            'mes_nombre': primer_dia.strftime('%B %Y'),
+            'semanas': semanas,
+            'matriz': matriz_mes,
+            'totales_ejecutores': totales_ejecutores_mes,
+            'total_mes': total_mes
+        })
+    
+    # Calcular totales generales por ejecutor (suma de todos los meses)
+    totales_generales_ejecutores = []
+    for i, ejecutor in enumerate(ejecutores):
+        total_general = sum(mes['totales_ejecutores'][i] for mes in datos_meses)
+        totales_generales_ejecutores.append(total_general)
+    
+    total_general = sum(totales_generales_ejecutores)
     
     context = {
-        'resultados': resultados,
+        'ejecutores': ejecutores,
+        'datos_meses': datos_meses,
+        'totales_generales_ejecutores': totales_generales_ejecutores,
         'total_general': total_general,
     }
     

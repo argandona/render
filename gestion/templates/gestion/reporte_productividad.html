@@ -1,43 +1,58 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Reporte de Productividad - Encossa{% endblock %}
+{% block title %}Reporte de Productividad por Ejecutor{% endblock %}
 
 {% block extra_css %}
 <style>
-    .tabla-simple {
+    .tabla-productividad {
         width: 100%;
         border-collapse: collapse;
-        font-size: 1rem;
+        font-size: 0.9rem;
+        margin-bottom: 30px;
     }
     
-    .tabla-simple th {
+    .tabla-productividad th {
         background: linear-gradient(135deg, #3b82f6, #2563eb);
         color: white;
-        padding: 15px 20px;
-        text-align: left;
+        padding: 12px 10px;
+        text-align: center;
         font-weight: 600;
         border: 1px solid rgba(255,255,255,0.2);
+        position: sticky;
+        top: 0;
+        z-index: 10;
     }
     
-    .tabla-simple td {
-        padding: 15px 20px;
+    .tabla-productividad th:first-child {
+        text-align: left;
+        padding-left: 20px;
+        min-width: 180px;
+    }
+    
+    .tabla-productividad td {
+        padding: 12px 10px;
+        text-align: center;
         border: 1px solid #e5e7eb;
     }
     
-    .tabla-simple tbody tr:nth-child(even) {
+    .tabla-productividad td:first-child {
+        font-weight: 600;
+        text-align: left;
+        padding-left: 20px;
         background: #f9fafb;
     }
     
-    .tabla-simple tbody tr:hover {
+    .tabla-productividad tbody tr:hover {
         background: #f3f4f6;
     }
     
     .monto-celda {
         display: inline-block;
-        padding: 8px 16px;
-        border-radius: 8px;
+        padding: 6px 12px;
+        border-radius: 6px;
         font-weight: 700;
+        min-width: 80px;
     }
     
     .monto-verde {
@@ -55,10 +70,35 @@
         color: #b91c1c;
     }
     
-    .total-row {
-        background: #f8fafc !important;
+    .tabla-productividad tfoot td {
+        background: #f9fafb;
         font-weight: 700;
-        border-top: 3px solid #3b82f6;
+        border-top: 3px solid #10b981;
+        padding: 15px 10px;
+    }
+    
+    .mes-header {
+        background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 10px 10px 0 0;
+        margin-top: 30px;
+    }
+    
+    .mes-total {
+        background: #f0f9ff;
+        padding: 15px;
+        border-radius: 0 0 10px 10px;
+        border: 2px solid #0ea5e9;
+        margin-bottom: 20px;
+    }
+    
+    .general-total {
+        background: linear-gradient(135deg, #10b981, #047857);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        margin-top: 30px;
     }
 </style>
 {% endblock %}
@@ -71,69 +111,133 @@
             <i class="fas fa-chart-line text-blue-600 mr-3"></i>
             Reporte de Productividad por Ejecutor
         </h1>
-        <p class="text-gray-600 mt-2">Resumen total (sin filtros de fecha)</p>
+        <p class="text-gray-600 mt-2">Agrupado por mes y semana</p>
     </div>
     
-    <!-- Tarjeta Resumen -->
-    <div class="bg-white rounded-xl p-5 shadow-md border-l-4 border-green-500 mb-6">
-        <div class="text-gray-600 text-sm font-semibold mb-1">
+    <!-- Tarjeta Resumen General -->
+    <div class="general-total">
+        <div class="text-white text-sm font-semibold mb-1">
             <i class="fas fa-money-bill-wave mr-2"></i>Producción Total General
         </div>
-        <div class="text-4xl font-bold text-green-600">S/ {{ total_general|floatformat:2 }}</div>
+        <div class="text-4xl font-bold text-white">S/ {{ total_general|floatformat:2 }}</div>
     </div>
     
-    <!-- Tabla Simple -->
-    <div class="bg-white rounded-xl shadow-lg overflow-auto">
-        <table class="tabla-simple">
-            <thead>
-                <tr>
-                    <th><i class="fas fa-user mr-2"></i>Ejecutor</th>
-                    <th><i class="fas fa-coins mr-2"></i>Monto Total (S/)</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in resultados %}
-                <tr>
-                    <td class="font-semibold text-gray-800">
-                        <i class="fas fa-user-tie text-blue-500 mr-2"></i>
-                        {{ item.ejecutado_por }}
-                    </td>
-                    <td>
-                        {% if item.total_monto %}
-                            {% with monto=item.total_monto %}
-                            {% if monto >= 7000 %}
-                            <span class="monto-celda monto-rojo">S/ {{ monto|floatformat:2 }}</span>
-                            {% elif monto >= 5000 %}
-                            <span class="monto-celda monto-amarillo">S/ {{ monto|floatformat:2 }}</span>
+    <!-- Tablas por Mes -->
+    {% for mes in datos_meses %}
+    <div class="mt-8">
+        <!-- Header del Mes -->
+        <div class="mes-header">
+            <h2 class="text-xl font-bold">
+                <i class="fas fa-calendar-alt mr-2"></i>{{ mes.mes_nombre }}
+            </h2>
+        </div>
+        
+        <!-- Tabla del Mes -->
+        <div class="bg-white rounded-b-xl shadow-lg overflow-auto">
+            <table class="tabla-productividad">
+                <thead>
+                    <tr>
+                        <th><i class="fas fa-calendar-week mr-2"></i>Semana</th>
+                        {% for ejecutor in ejecutores %}
+                        <th>{{ ejecutor }}</th>
+                        {% endfor %}
+                        <th style="background: linear-gradient(135deg, #10b981, #047857);">
+                            <i class="fas fa-calculator mr-2"></i>TOTAL SEMANA
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in mes.matriz %}
+                    <tr>
+                        <td>{{ fila.semana }}</td>
+                        {% for monto in fila.montos %}
+                        <td>
+                            {% if monto > 0 %}
+                                {% if monto >= 7000 %}
+                                <span class="monto-celda monto-rojo">S/ {{ monto|floatformat:2 }}</span>
+                                {% elif monto >= 5000 %}
+                                <span class="monto-celda monto-amarillo">S/ {{ monto|floatformat:2 }}</span>
+                                {% else %}
+                                <span class="monto-celda monto-verde">S/ {{ monto|floatformat:2 }}</span>
+                                {% endif %}
                             {% else %}
-                            <span class="monto-celda monto-verde">S/ {{ monto|floatformat:2 }}</span>
+                            <span style="color: #cbd5e1;">—</span>
                             {% endif %}
-                            {% endwith %}
-                        {% else %}
-                        <span style="color: #cbd5e1;">S/ 0.00</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="2" class="text-center py-8 text-gray-500">
-                        <i class="fas fa-exclamation-circle text-yellow-500 text-2xl mb-3"></i>
-                        <p>No se encontraron ejecutores con datos.</p>
-                        <p class="text-sm mt-2">Verifica que los suministros tengan el campo "ejecutado_por" completado.</p>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr class="total-row">
-                    <td><strong>TOTAL GENERAL</strong></td>
-                    <td style="color: #3b82f6; font-size: 1.2rem;">
-                        <strong>S/ {{ total_general|floatformat:2 }}</strong>
-                    </td>
-                </tr>
-            </tfoot>
-        </table>
+                        </td>
+                        {% endfor %}
+                        <td style="background: #d1fae5; color: #047857; font-weight: 700;">
+                            S/ {{ fila.total_semana|floatformat:2 }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td><i class="fas fa-user mr-2"></i>TOTAL POR EJECUTOR</td>
+                        {% for total in mes.totales_ejecutores %}
+                        <td style="color: #3b82f6; font-weight: 700;">
+                            S/ {{ total|floatformat:2 }}
+                        </td>
+                        {% endfor %}
+                        <td style="background: linear-gradient(135deg, #10b981, #047857); color: white; font-size: 1.1rem;">
+                            <i class="fas fa-coins mr-2"></i>S/ {{ mes.total_mes|floatformat:2 }}
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        
+        <!-- Resumen del Mes -->
+        <div class="mes-total">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <div class="text-blue-600 text-sm font-semibold">Total del Mes</div>
+                    <div class="text-2xl font-bold text-blue-700">S/ {{ mes.total_mes|floatformat:2 }}</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-gray-600 text-sm">Número de semanas: {{ mes.matriz|length }}</div>
+                    <div class="text-gray-600 text-sm">Ejecutores activos: {{ ejecutores|length }}</div>
+                </div>
+            </div>
+        </div>
     </div>
+    {% empty %}
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg">
+        <div class="flex items-center">
+            <i class="fas fa-exclamation-triangle text-yellow-400 text-2xl mr-3"></i>
+            <div>
+                <p class="text-yellow-700 font-semibold">No hay datos disponibles</p>
+                <p class="text-yellow-600 text-sm mt-1">No se encontraron suministros con ejecutor asignado.</p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    
+    <!-- Totales Generales por Ejecutor -->
+    {% if datos_meses %}
+    <div class="mt-8 bg-white rounded-xl shadow-lg p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">
+            <i class="fas fa-chart-bar text-purple-600 mr-2"></i>
+            Totales Generales por Ejecutor
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {% for ejecutor in ejecutores %}
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <div class="text-gray-600 text-sm font-semibold">{{ ejecutor }}</div>
+                {% with total=totales_generales_ejecutores.forloop.counter0 %}
+                <div class="text-xl font-bold mt-2
+                    {% if total >= 7000 %}text-red-600
+                    {% elif total >= 5000 %}text-yellow-600
+                    {% else %}text-green-600
+                    {% endif %}">
+                    S/ {{ total|floatformat:2 }}
+                </div>
+                {% endwith %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
     
     <!-- Leyenda -->
     <div class="mt-6 bg-gray-50 rounded-lg p-4">
