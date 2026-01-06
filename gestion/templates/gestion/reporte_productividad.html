@@ -1,0 +1,350 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Reporte de Productividad - Encossa{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Estilos para la tabla matriz */
+    .tabla-matriz-container {
+        overflow-x: auto;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    
+    .tabla-matriz {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+        font-size: 0.9rem;
+    }
+    
+    .tabla-matriz thead th {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+        padding: 15px 10px;
+        text-align: center;
+        font-weight: 600;
+        border-right: 2px solid rgba(255,255,255,0.2);
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .tabla-matriz thead th:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 11;
+        text-align: left;
+        padding-left: 20px;
+        min-width: 220px;
+    }
+    
+    .tabla-matriz tbody td:first-child {
+        position: sticky;
+        left: 0;
+        background: white;
+        font-weight: 600;
+        padding: 15px 20px;
+        border-right: 3px solid #e5e7eb;
+        z-index: 5;
+    }
+    
+    .tabla-matriz tbody td {
+        padding: 12px 10px;
+        text-align: center;
+        border-bottom: 1px solid #f3f4f6;
+        border-right: 1px solid #f3f4f6;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    
+    .tabla-matriz tbody tr:hover td {
+        background: #f9fafb;
+    }
+    
+    .tabla-matriz tbody td:hover {
+        background: #dbeafe !important;
+        transform: scale(1.05);
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+        z-index: 2;
+    }
+    
+    .celda-monto {
+        background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+        font-weight: 700;
+        color: #047857;
+        border-radius: 6px;
+        padding: 8px 5px;
+    }
+    
+    .celda-monto-medio {
+        background: linear-gradient(135deg, #fef3c7, #fde68a);
+        color: #b45309;
+    }
+    
+    .celda-monto-alto {
+        background: linear-gradient(135deg, #fecaca, #fca5a5);
+        color: #b91c1c;
+    }
+    
+    .celda-vacia {
+        color: #cbd5e1;
+        font-size: 1.2rem;
+    }
+    
+    .tabla-matriz tfoot td {
+        background: #f9fafb;
+        font-weight: 700;
+        padding: 15px 10px;
+        border-top: 3px solid #3b82f6;
+        text-align: center;
+    }
+    
+    .tabla-matriz tfoot td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 5;
+        text-align: left;
+        padding-left: 20px;
+    }
+    
+    .badge-actual {
+        background: #fef3c7;
+        color: #d97706;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        margin-left: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-full">
+    <!-- Encabezado -->
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-800 flex items-center">
+            <i class="fas fa-chart-line text-blue-600 mr-3"></i>
+            Reporte de Productividad por Ejecutor
+        </h1>
+        <p class="text-gray-600 mt-2">Matriz de producción por período</p>
+    </div>
+    
+    <!-- Filtros Superiores -->
+    <div class="bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl p-6 mb-6 shadow-lg">
+        <form method="GET" action="{% url 'reporte_productividad' %}" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- Vista -->
+            <div>
+                <label class="block text-white font-semibold mb-2">
+                    <i class="fas fa-calendar-alt mr-2"></i>Vista
+                </label>
+                <select name="vista" class="w-full px-4 py-2 border-2 border-purple-300 bg-white bg-opacity-20 text-white rounded-lg focus:outline-none focus:border-white">
+                    <option value="semanal" {% if vista == 'semanal' %}selected{% endif %}>Por Semana</option>
+                    <option value="mensual" {% if vista == 'mensual' %}selected{% endif %}>Por Mes (Diario)</option>
+                </select>
+            </div>
+            
+            <!-- Mes -->
+            <div>
+                <label class="block text-white font-semibold mb-2">
+                    <i class="fas fa-calendar mr-2"></i>Mes
+                </label>
+                <select name="mes" class="w-full px-4 py-2 border-2 border-purple-300 bg-white bg-opacity-20 text-white rounded-lg focus:outline-none focus:border-white">
+                    {% for mes in meses_disponibles %}
+                    <option value="{{ mes.valor }}" {% if mes.valor == mes_seleccionado %}selected{% endif %}>
+                        {{ mes.nombre }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Distrito -->
+            <div>
+                <label class="block text-white font-semibold mb-2">
+                    <i class="fas fa-map-marker-alt mr-2"></i>Distrito
+                </label>
+                <select name="distrito" class="w-full px-4 py-2 border-2 border-purple-300 bg-white bg-opacity-20 text-white rounded-lg focus:outline-none focus:border-white">
+                    <option value="">Todos los distritos</option>
+                    {% for distrito in distritos %}
+                    <option value="{{ distrito.id }}" {% if distrito.id|stringformat:"s" == distrito_seleccionado %}selected{% endif %}>
+                        {{ distrito.nombre_distrito }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Botón -->
+            <div class="flex items-end">
+                <button type="submit" class="w-full bg-white text-purple-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-100 transition">
+                    <i class="fas fa-search mr-2"></i>Filtrar
+                </button>
+            </div>
+        </form>
+        
+        <!-- Botones adicionales -->
+        <div class="mt-4 flex gap-2">
+            <a href="?vista={{ vista }}&mes={{ mes_seleccionado }}" class="text-white text-sm underline hover:no-underline">
+                <i class="fas fa-times-circle mr-1"></i>Limpiar filtros
+            </a>
+            <button class="ml-auto bg-white bg-opacity-20 text-white text-sm px-4 py-2 rounded-lg hover:bg-opacity-30 transition">
+                <i class="fas fa-file-excel mr-2"></i>Exportar Excel
+            </button>
+        </div>
+    </div>
+    
+    <!-- Tarjetas de Resumen -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl p-5 shadow-md border-l-4 border-blue-500">
+            <div class="text-gray-600 text-sm font-semibold mb-1">
+                <i class="fas fa-users mr-2"></i>Total Ejecutores
+            </div>
+            <div class="text-3xl font-bold text-blue-600">{{ total_ejecutores }}</div>
+            <div class="text-sm text-gray-500 mt-1">Activos en el período</div>
+        </div>
+        
+        <div class="bg-white rounded-xl p-5 shadow-md border-l-4 border-green-500">
+            <div class="text-gray-600 text-sm font-semibold mb-1">
+                <i class="fas fa-money-bill-wave mr-2"></i>Producción Total
+            </div>
+            <div class="text-3xl font-bold text-green-600">S/ {{ total_general|floatformat:0 }}</div>
+            <div class="text-sm text-green-600 mt-1">
+                <i class="fas fa-arrow-up mr-1"></i>Período seleccionado
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl p-5 shadow-md border-l-4 border-yellow-500">
+            <div class="text-gray-600 text-sm font-semibold mb-1">
+                <i class="fas fa-trophy mr-2"></i>Top Productor
+            </div>
+            <div class="text-xl font-bold text-yellow-600">
+                {% if top_productor %}{{ top_productor.ejecutor|truncatewords:2 }}{% else %}—{% endif %}
+            </div>
+            <div class="text-sm text-gray-500 mt-1">
+                {% if top_productor %}S/ {{ top_productor.total|floatformat:0 }}{% else %}Sin datos{% endif %}
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl p-5 shadow-md border-l-4 border-purple-500">
+            <div class="text-gray-600 text-sm font-semibold mb-1">
+                <i class="fas fa-chart-bar mr-2"></i>Promedio por Período
+            </div>
+            <div class="text-3xl font-bold text-purple-600">S/ {{ promedio_periodo|floatformat:0 }}</div>
+            <div class="text-sm text-gray-500 mt-1">Por ejecutor activo</div>
+        </div>
+    </div>
+    
+    <!-- Tabla Matriz -->
+    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="tabla-matriz-container">
+            <table class="tabla-matriz">
+                <thead>
+                    <tr>
+                        <th><i class="fas fa-user mr-2"></i>Ejecutor</th>
+                        {% for periodo in periodos %}
+                        <th>
+                            {{ periodo.label }}<br>
+                            <small style="opacity: 0.8; font-weight: normal;">
+                                {% if vista == 'semanal' %}
+                                {{ periodo.rango }}
+                                {% else %}
+                                {{ periodo.dia_semana }}
+                                {% endif %}
+                            </small>
+                            {% if periodo.es_actual or periodo.es_hoy %}
+                            <span class="badge-actual">ACTUAL</span>
+                            {% endif %}
+                        </th>
+                        {% endfor %}
+                        <th style="background: linear-gradient(135deg, #10b981, #047857);">
+                            <i class="fas fa-calculator mr-2"></i>TOTAL
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in matriz %}
+                    <tr>
+                        <td>
+                            {% if forloop.counter == 1 %}
+                            <i class="fas fa-trophy text-yellow-500 mr-2"></i>
+                            {% endif %}
+                            <strong>{{ fila.ejecutor }}</strong>
+                        </td>
+                        {% for celda in fila.periodos %}
+                        <td title="{{ celda.cantidad }} suministro{{ celda.cantidad|pluralize }}">
+                            {% if celda.monto > 0 %}
+                                {% if celda.monto >= 7000 %}
+                                <div class="celda-monto celda-monto-alto">
+                                {% elif celda.monto >= 5000 %}
+                                <div class="celda-monto celda-monto-medio">
+                                {% else %}
+                                <div class="celda-monto">
+                                {% endif %}
+                                    S/ {{ celda.monto|floatformat:0 }}
+                                </div>
+                            {% else %}
+                            <div class="celda-vacia">—</div>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                        <td style="background: #d1fae5; font-weight: 800; color: #047857; font-size: 1.1rem;">
+                            S/ {{ fila.total|floatformat:0 }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{{ periodos|length|add:2 }}" class="text-center text-gray-500 py-8">
+                            <i class="fas fa-inbox text-4xl mb-3"></i><br>
+                            No hay datos para mostrar en el período seleccionado
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td><i class="fas fa-calculator mr-2"></i>TOTAL POR PERÍODO</td>
+                        {% for total in totales_por_periodo %}
+                        <td style="color: #3b82f6; font-size: 1.1rem;">
+                            S/ {{ total|floatformat:0 }}
+                        </td>
+                        {% endfor %}
+                        <td style="background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; font-size: 1.3rem;">
+                            <i class="fas fa-coins mr-2"></i>S/ {{ total_general|floatformat:0 }}
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        
+        <!-- Leyenda -->
+        <div class="p-5 bg-gray-50 border-t border-gray-200">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <h6 class="font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-info-circle mr-2"></i>Leyenda de Colores
+                    </h6>
+                    <div class="flex gap-4 flex-wrap">
+                        <div class="flex items-center">
+                            <span class="celda-monto inline-block px-3 py-1">Verde</span>
+                            <small class="text-gray-600 ml-2">= S/ 0 - 5,000</small>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="celda-monto celda-monto-medio inline-block px-3 py-1">Amarillo</span>
+                            <small class="text-gray-600 ml-2">= S/ 5,001 - 7,000</small>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="celda-monto celda-monto-alto inline-block px-3 py-1">Rojo</span>
+                            <small class="text-gray-600 ml-2">= S/ 7,001+</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-600">
+                    <i class="fas fa-mouse mr-2"></i>Pasa el cursor sobre las celdas para ver cantidad de suministros
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

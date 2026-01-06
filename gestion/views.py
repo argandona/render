@@ -1065,3 +1065,235 @@ def dashboard(request):
     }
     
     return render(request, 'gestion/dashboard.html', context)
+
+
+
+# sst_app/views.py
+from django.shortcuts import render
+from django.db.models import Sum, Count, Q
+from datetime import datetime, timedelta
+from decimal import Decimal
+import calendar
+from .models import Suministro, EstadoSuministro
+
+def reporte_productividad(request):
+    """
+    Vista para el reporte de productividad por ejecutor
+    Muestra matriz de ejecutores vs semanas/meses
+    """
+    # Obtener parámetros de filtro
+    vista = request.GET.get('vista', 'semanal')  # 'semanal' o 'mensual'
+    mes_seleccionado = request.GET.get('mes', datetime.now().strftime('%Y-%m'))
+    distrito_id = request.GET.get('distrito', '')
+    
+    # Parsear mes seleccionado
+    try:
+        year, month = map(int, mes_seleccionado.split('-'))
+    except:
+        year, month = datetime.now().year, datetime.now().month
+    
+    # Obtener primer y último día del mes
+    primer_dia = datetime(year, month, 1).date()
+    ultimo_dia = datetime(year, month, calendar.monthrange(year, month)[1]).date()
+    
+    # Estados válidos para producción
+    estados_validos = EstadoSuministro.objects.filter(
+        estado_suministro__in=['EJECUTADO', 'DEVUELTO']
+    )
+    
+    # Query base de suministros
+    suministros_query = Suministro.objects.filter(
+        estado_suministro__in=estados_validos,
+        fecha_ejecucion__gte=primer_dia,
+        fecha_ejecucion__lte=ultimo_dia,
+        ejecutado_por__isnull=False
+    ).exclude(ejecutado_por='')
+    
+    # Filtro opcional por distrito
+    if distrito_id:
+        suministros_query = suministros_query.filter(distrito_id=distrito_id)
+    
+    # Obtener lista única de ejecutores
+    ejecutores = suministros_query.values('ejecutado_por').annotate(
+        total_monto=Sum('monto'),
+        total_suministros=Count('id')
+    ).order_by('-total_monto')
+    
+    if vista == 'semanal':
+        # Generar semanas del mes
+        periodos = generar_semanas_mes(year, month)
+        
+        # Construir matriz
+        matriz = []
+        totales_por_periodo = [Decimal('0.00')] * len(periodos)
+        
+        for ejecutor in ejecutores:
+            nombre_ejecutor = ejecutor['ejecutado_por']
+            fila = {
+                'ejecutor': nombre_ejecutor,
+                'periodos': [],
+                'total': Decimal('0.00')
+            }
+            
+            for i, periodo in enumerate(periodos):
+                # Sumar montos del ejecutor en ese período
+                monto = suministros_query.filter(
+                    ejecutado_por=nombre_ejecutor,
+                    fecha_ejecucion__gte=periodo['inicio'],
+                    fecha_ejecucion__lte=periodo['fin']
+                ).aggregate(
+                    total=Sum('monto', default=Decimal('0.00'))
+                )['total']
+                
+                cantidad = suministros_query.filter(
+                    ejecutado_por=nombre_ejecutor,
+                    fecha_ejecucion__gte=periodo['inicio'],
+                    fecha_ejecucion__lte=periodo['fin']
+                ).count()
+                
+                fila['periodos'].append({
+                    'monto': monto,
+                    'cantidad': cantidad
+                })
+                fila['total'] += monto
+                totales_por_periodo[i] += monto
+            
+            matriz.append(fila)
+    
+    else:  # vista mensual
+        # Para vista mensual, mostrar días del mes
+        periodos = generar_dias_mes(year, month)
+        
+        # Construir matriz (similar a semanal pero por días)
+        matriz = []
+        totales_por_periodo = [Decimal('0.00')] * len(periodos)
+        
+        for ejecutor in ejecutores:
+            nombre_ejecutor = ejecutor['ejecutado_por']
+            fila = {
+                'ejecutor': nombre_ejecutor,
+                'periodos': [],
+                'total': Decimal('0.00')
+            }
+            
+            for i, periodo in enumerate(periodos):
+                monto = suministros_query.filter(
+                    ejecutado_por=nombre_ejecutor,
+                    fecha_ejecucion=periodo['fecha']
+                ).aggregate(
+                    total=Sum('monto', default=Decimal('0.00'))
+                )['total']
+                
+                cantidad = suministros_query.filter(
+                    ejecutado_por=nombre_ejecutor,
+                    fecha_ejecucion=periodo['fecha']
+                ).count()
+                
+                fila['periodos'].append({
+                    'monto': monto,
+                    'cantidad': cantidad
+                })
+                fila['total'] += monto
+                totales_por_periodo[i] += monto
+            
+            matriz.append(fila)
+    
+    # Calcular estadísticas generales
+    total_general = sum(totales_por_periodo)
+    total_ejecutores = len(matriz)
+    total_suministros = suministros_query.count()
+    
+    top_productor = matriz[0] if matriz else None
+    promedio_semanal = total_general / len(periodos) if periodos else Decimal('0.00')
+    
+    # Obtener lista de distritos para filtro
+    from .models import Distrito
+    distritos = Distrito.objects.all().order_by('nombre_distrito')
+    
+    # Generar opciones de meses (últimos 12 meses)
+    meses_disponibles = []
+    fecha_actual = datetime.now()
+    for i in range(12):
+        fecha = fecha_actual - timedelta(days=30*i)
+        meses_disponibles.append({
+            'valor': fecha.strftime('%Y-%m'),
+            'nombre': fecha.strftime('%B %Y').capitalize()
+        })
+    
+    context = {
+        'vista': vista,
+        'mes_seleccionado': mes_seleccionado,
+        'distrito_seleccionado': distrito_id,
+        'periodos': periodos,
+        'matriz': matriz,
+        'totales_por_periodo': totales_por_periodo,
+        'total_general': total_general,
+        'total_ejecutores': total_ejecutores,
+        'total_suministros': total_suministros,
+        'top_productor': top_productor,
+        'promedio_periodo': promedio_semanal,
+        'distritos': distritos,
+        'meses_disponibles': meses_disponibles,
+        'es_semana_actual': lambda inicio, fin: primer_dia <= datetime.now().date() <= ultimo_dia,
+    }
+    
+    return render(request, 'sst_app/reporte_productividad.html', context)
+
+
+def generar_semanas_mes(year, month):
+    """Genera las semanas del mes con fechas de inicio y fin"""
+    primer_dia = datetime(year, month, 1).date()
+    ultimo_dia = datetime(year, month, calendar.monthrange(year, month)[1]).date()
+    
+    semanas = []
+    fecha_actual = primer_dia
+    num_semana = 1
+    
+    while fecha_actual <= ultimo_dia:
+        # Inicio de semana (lunes)
+        inicio_semana = fecha_actual
+        
+        # Fin de semana (domingo) o último día del mes
+        dias_hasta_domingo = 6 - fecha_actual.weekday()
+        fin_semana = fecha_actual + timedelta(days=dias_hasta_domingo)
+        
+        if fin_semana > ultimo_dia:
+            fin_semana = ultimo_dia
+        
+        # Verificar si es la semana actual
+        hoy = datetime.now().date()
+        es_actual = inicio_semana <= hoy <= fin_semana
+        
+        semanas.append({
+            'numero': num_semana,
+            'inicio': inicio_semana,
+            'fin': fin_semana,
+            'label': f"Sem {num_semana}",
+            'rango': f"{inicio_semana.strftime('%d')}-{fin_semana.strftime('%d %b')}",
+            'es_actual': es_actual
+        })
+        
+        fecha_actual = fin_semana + timedelta(days=1)
+        num_semana += 1
+    
+    return semanas
+
+
+def generar_dias_mes(year, month):
+    """Genera todos los días del mes"""
+    primer_dia = datetime(year, month, 1).date()
+    ultimo_dia = datetime(year, month, calendar.monthrange(year, month)[1]).date()
+    
+    dias = []
+    fecha_actual = primer_dia
+    
+    while fecha_actual <= ultimo_dia:
+        dias.append({
+            'fecha': fecha_actual,
+            'label': fecha_actual.strftime('%d'),
+            'dia_semana': fecha_actual.strftime('%a'),
+            'es_hoy': fecha_actual == datetime.now().date()
+        })
+        fecha_actual += timedelta(days=1)
+    
+    return dias
