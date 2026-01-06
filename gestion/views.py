@@ -1071,13 +1071,10 @@ def dashboard(request):
 # sst_app/views.py
 
 
-
-
 from django.shortcuts import render
-from django.db.models import Sum, F
 from django.utils import timezone
 from datetime import datetime, timedelta
-from .models import SST, ProgramacionPersonalSST, Suministro, Empleado
+from .models import SST, Suministro
 
 def reporte_productividad(request):
     """
@@ -1093,25 +1090,18 @@ def reporte_productividad(request):
     # Fecha actual
     hoy = timezone.now().date()
 
-    # --- Filtrar SST que tengan programación o suministros ejecutados ---
+    # --- Filtrar SST ---
     ssts = SST.objects.all()
-
-    # Filtro por búsqueda de ejecutor
-    if search:
-        ssts = ssts.filter(
-            programaciones_personal__nombre_empleado__nombre__icontains=search
-        ).distinct()
 
     # --- Preparar matriz de semanas ---
     semanas = []
-
     if vista == 'semanal' and mes_seleccionado:
         año, mes = map(int, mes_seleccionado.split('-'))
         primer_dia = datetime(año, mes, 1).date()
         if mes == 12:
-            ultimo_dia = datetime(año+1, 1, 1).date() - timedelta(days=1)
+            ultimo_dia = datetime(año + 1, 1, 1).date() - timedelta(days=1)
         else:
-            ultimo_dia = datetime(año, mes+1, 1).date() - timedelta(days=1)
+            ultimo_dia = datetime(año, mes + 1, 1).date() - timedelta(days=1)
 
         dia_actual = primer_dia
         while dia_actual <= ultimo_dia:
@@ -1125,20 +1115,30 @@ def reporte_productividad(request):
 
     # --- Inicializar datos de ejecutores ---
     ejecutores_data = {}
+
     for sst in ssts:
-        for prog in sst.programaciones_personal.all():
-            nombre = f"{prog.nombre_empleado.nombre} {prog.nombre_empleado.apellido_paterno}"
+        for suministro in sst.suministros.all():
+            # Saltar si no hay ejecutor o fecha de ejecución
+            if not suministro.ejecutado_por or not suministro.fecha_ejecucion:
+                continue
+
+            nombre = suministro.ejecutado_por.strip()
+
+            if search and search.lower() not in nombre.lower():
+                continue
+
             if nombre not in ejecutores_data:
                 ejecutores_data[nombre] = [0] * len(semanas)
 
-            # Convertir prog.fecha a date para comparación segura
-            prog_fecha_date = prog.fecha.date() if isinstance(prog.fecha, datetime) else prog.fecha
+            # fecha_ejecucion ya es DateField, pero por seguridad aseguramos date
+            fecha_ejec = suministro.fecha_ejecucion
+            if isinstance(fecha_ejec, datetime):
+                fecha_ejec = fecha_ejec.date()
 
-            # Solo contar montos si la fecha está dentro de la semana y no es futura
+            # Contar monto solo si fecha está dentro de la semana y no es futura
             for idx, semana in enumerate(semanas):
-                if semana['inicio'] <= prog_fecha_date <= semana['fin'] and prog_fecha_date <= hoy:
-                    monto_sst = sst.monto_total_suministros
-                    ejecutores_data[nombre][idx] += monto_sst
+                if semana['inicio'] <= fecha_ejec <= semana['fin'] and fecha_ejec <= hoy:
+                    ejecutores_data[nombre][idx] += suministro.monto
 
     # --- Totales ---
     total_por_periodo = [0] * len(semanas)
