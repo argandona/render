@@ -134,66 +134,53 @@
     </div>
     
     <!-- Filtros Superiores -->
+    
+
     <div class="bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl p-6 mb-6 shadow-lg">
-        <form method="GET" action="{% url 'reporte_productividad' %}" class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <!-- Vista -->
-            <div>
-                <label class="block text-white font-semibold mb-2">
-                    <i class="fas fa-calendar-alt mr-2"></i>Vista
-                </label>
-                <select name="vista" class="w-full px-4 py-2 border-2 border-purple-300 bg-white bg-opacity-20 text-white rounded-lg focus:outline-none focus:border-white">
-                    <option value="semanal" {% if vista == 'semanal' %}selected{% endif %}>Por Semana</option>
-                    <option value="mensual" {% if vista == 'mensual' %}selected{% endif %}>Por Mes (Diario)</option>
-                </select>
-            </div>
-            
-            <!-- Mes -->
-            <div>
-                <label class="block text-white font-semibold mb-2">
-                    <i class="fas fa-calendar mr-2"></i>Mes
-                </label>
-                <select name="mes" class="w-full px-4 py-2 border-2 border-purple-300 bg-white bg-opacity-20 text-white rounded-lg focus:outline-none focus:border-white">
-                    {% for mes in meses_disponibles %}
-                    <option value="{{ mes.valor }}" {% if mes.valor == mes_seleccionado %}selected{% endif %}>
-                        {{ mes.nombre }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <!-- Distrito -->
-            <div>
-                <label class="block text-white font-semibold mb-2">
-                    <i class="fas fa-map-marker-alt mr-2"></i>Distrito
-                </label>
-                <select name="distrito" class="w-full px-4 py-2 border-2 border-purple-300 bg-white bg-opacity-20 text-white rounded-lg focus:outline-none focus:border-white">
-                    <option value="">Todos los distritos</option>
-                    {% for distrito in distritos %}
-                    <option value="{{ distrito.id }}" {% if distrito.id|stringformat:"s" == distrito_seleccionado %}selected{% endif %}>
-                        {{ distrito.nombre_distrito }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <!-- Botón -->
-            <div class="flex items-end">
-                <button type="submit" class="w-full bg-white text-purple-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-100 transition">
-                    <i class="fas fa-search mr-2"></i>Filtrar
-                </button>
-            </div>
-        </form>
+    <form method="GET" action="{% url 'reporte_productividad' %}" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <!-- Vista -->
+        <div>
+            <label class="block text-white font-semibold mb-2">
+                <i class="fas fa-calendar-alt mr-2"></i>Vista
+            </label>
+            <select name="vista" class="w-full px-4 py-2 border-2 border-purple-300 bg-white bg-opacity-20 text-white rounded-lg focus:outline-none focus:border-white">
+                <option value="semanal" {% if vista == 'semanal' %}selected{% endif %}>Por Semana</option>
+                <option value="mensual" {% if vista == 'mensual' %}selected{% endif %}>Por Mes (Diario)</option>
+            </select>
+        </div>
         
-        <!-- Botones adicionales -->
-        <div class="mt-4 flex gap-2">
-            <a href="?vista={{ vista }}&mes={{ mes_seleccionado }}" class="text-white text-sm underline hover:no-underline">
-                <i class="fas fa-times-circle mr-1"></i>Limpiar filtros
-            </a>
-            <button class="ml-auto bg-white bg-opacity-20 text-white text-sm px-4 py-2 rounded-lg hover:bg-opacity-30 transition">
-                <i class="fas fa-file-excel mr-2"></i>Exportar Excel
+        <!-- Mes -->
+        <div>
+            <label class="block text-white font-semibold mb-2">
+                <i class="fas fa-calendar mr-2"></i>Mes
+            </label>
+            <select name="mes" class="w-full px-4 py-2 border-2 border-purple-300 bg-white bg-opacity-20 text-white rounded-lg focus:outline-none focus:border-white">
+                {% for mes in meses_disponibles %}
+                <option value="{{ mes.valor }}" {% if mes.valor == mes_seleccionado %}selected{% endif %}>
+                    {{ mes.nombre }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <!-- Botón Filtrar -->
+        <div>
+            <button type="submit" class="w-full bg-white text-purple-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-100 transition">
+                <i class="fas fa-search mr-2"></i>Filtrar
             </button>
         </div>
+    </form>
+
+    <!-- Botones adicionales -->
+    <div class="mt-4 flex flex-col md:flex-row gap-2 items-center justify-between">
+        <a href="?vista={{ vista }}&mes={{ mes_seleccionado }}" class="text-white text-sm underline hover:no-underline">
+            <i class="fas fa-times-circle mr-1"></i>Limpiar filtros
+        </a>
+        <button class="bg-white bg-opacity-20 text-white text-sm px-4 py-2 rounded-lg hover:bg-opacity-30 transition">
+            <i class="fas fa-file-excel mr-2"></i>Exportar Excel
+        </button>
     </div>
+</div>
     
     <!-- Tarjetas de Resumen -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">

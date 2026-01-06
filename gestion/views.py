@@ -1237,7 +1237,7 @@ def reporte_productividad(request):
         'es_semana_actual': lambda inicio, fin: primer_dia <= datetime.now().date() <= ultimo_dia,
     }
     
-    return render(request, 'sst_app/reporte_productividad.html', context)
+    return render(request, 'gestion/reporte_productividad.html', context)
 
 
 def generar_semanas_mes(year, month):
