@@ -1076,33 +1076,47 @@ def dashboard(request):
 
 
 # sst_app/views.py
+
+
 from django.shortcuts import render
 from django.db.models import Sum
-from gestion.models import Suministro
 
 def reporte_productividad(request):
-    #Obtener todos los suministros que tienen ejecutado_por
-    suministros_con_ejecutor = Suministro.objects.exclude(
-        ejecutado_por__isnull=True
-    ).exclude(
-        ejecutado_por=''
-    )
-    
-    #Agrupar por ejecutor y sumar montos
-    resultados = suministros_con_ejecutor.values('ejecutado_por').annotate(
-        total_monto=Sum('monto')
-    ).order_by('ejecutado_por')
-    
-    #Calcular total general
-    total_general = sum(item['total_monto'] for item in resultados)
-    
+    """
+    Vista para mostrar el reporte de productividad por ejecutor
+    Maneja correctamente valores None y tablas vacías
+    """
+    try:
+        # Obtener suministros con ejecutor
+        suministros_con_ejecutor = Suministro.objects.exclude(
+            ejecutado_por__isnull=True
+        ).exclude(
+            ejecutado_por=''
+        )
+
+        # Agrupar por ejecutor y sumar montos
+        resultados = suministros_con_ejecutor.values('ejecutado_por').annotate(
+            total_monto=Sum('monto')
+        ).order_by('ejecutado_por')
+
+        # Calcular total general
+        total_general = sum(item['total_monto'] or 0 for item in resultados)
+
+        # Calcular promedio por ejecutor
+        promedio_por_ejecutor = 0
+        if len(resultados) > 0:
+            promedio_por_ejecutor = total_general / len(resultados)
+
+    except Exception as e:
+        print(f"[ERROR] reporte_productividad: {e}")
+        resultados = []
+        total_general = 0
+        promedio_por_ejecutor = 0
+
     context = {
         'resultados': resultados,
         'total_general': total_general,
+        'promedio_por_ejecutor': promedio_por_ejecutor,
     }
     
     return render(request, 'gestion/reporte_productividad.html', context)
-
-
-
-# sst_app/views.pyfrom datetime import datetime, timedelta

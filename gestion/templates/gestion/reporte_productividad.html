@@ -207,13 +207,13 @@
                 </div>
                 <div class="ml-4">
                     <h3 class="text-lg font-semibold text-gray-800">Promedio por Ejecutor</h3>
-                    <p class="text-2xl font-bold text-gray-900">
-                        {% if resultados|length > 0 %}
-                            S/ {{ total_general|dividedby:resultados|length|floatformat:2 }}
-                        {% else %}
-                            S/ 0.00
-                        {% endif %}
-                    </p>
+
+
+                   <p class="text-2xl font-bold text-gray-900">
+    S/ {{ promedio_por_ejecutor|floatformat:2 }}
+</p>
+
+
                 </div>
             </div>
             <p class="text-sm text-gray-600">Producción promedio por ejecutor</p>
