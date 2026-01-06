@@ -1075,9 +1075,7 @@ def dashboard(request):
 # sst_app/views.
 
 
-# sst_app/views.py
-
-from datetime import datetime, timedelta
+# sst_app/views.pyfrom datetime import datetime, timedelta
 from django.shortcuts import render
 from django.utils import timezone
 from django.db.models import Sum
@@ -1090,7 +1088,7 @@ def reporte_productividad(request):
     SIN FILTROS - Muestra el mes actual siempre
     """
     
-    # Usar mes actual siempre
+    # Usar mes actual siempre (ignorar parámetros GET antiguos)
     hoy = timezone.now().date()
     año, mes = hoy.year, hoy.month
     
@@ -1162,18 +1160,8 @@ def reporte_productividad(request):
     # Total general
     total_general = sum(totales_ejecutores)
     
-    # Preparar meses disponibles
-    meses_disponibles = []
-    for i in range(12):
-        fecha = timezone.now().date() - timedelta(days=30*i)
-        meses_disponibles.append({
-            'valor': fecha.strftime('%Y-%m'),
-            'nombre': fecha.strftime('%B %Y')
-        })
-    
     context = {
-        'mes_seleccionado': mes_seleccionado,
-        'meses_disponibles': meses_disponibles,
+        'mes_actual': hoy.strftime('%B %Y'),
         'ejecutores': ejecutores,
         'matriz': matriz,
         'totales_ejecutores': totales_ejecutores,
