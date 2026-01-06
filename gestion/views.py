@@ -1068,11 +1068,19 @@ def dashboard(request):
 
 
 
+
+
+
+
+# sst_app/views.
+
+
 # sst_app/views.py
 from datetime import datetime, timedelta
+from decimal import Decimal
 from django.shortcuts import render
 from django.utils import timezone
-from gestion.models import SST, Suministro
+from gestion.models import Suministro
 
 def reporte_productividad(request):
     """
@@ -1090,58 +1098,66 @@ def reporte_productividad(request):
 
     # --- Obtener suministros filtrados ---
     suministros = Suministro.objects.all()
-
     if search:
         suministros = suministros.filter(ejecutado_por__icontains=search)
 
-    # --- Preparar matriz de semanas ---
+    # --- Preparar semanas si vista semanal ---
     semanas = []
-
     if vista == 'semanal' and mes_seleccionado:
         año, mes = map(int, mes_seleccionado.split('-'))
         primer_dia = datetime(año, mes, 1).date()
         ultimo_dia = (datetime(año + (mes // 12), (mes % 12) + 1, 1).date() - timedelta(days=1))
-        
+
         dia_actual = primer_dia
         while dia_actual <= ultimo_dia:
             semana_inicio = dia_actual
             semana_fin = min(dia_actual + timedelta(days=6), ultimo_dia)
-            semanas.append({
-                'inicio': semana_inicio,
-                'fin': semana_fin,
-            })
+            semanas.append({'inicio': semana_inicio, 'fin': semana_fin})
             dia_actual = semana_fin + timedelta(days=1)
 
+    # --- Preparar periodos para template ---
+    periodos = []
+    for s in semanas:
+        periodos.append({
+            'label': f"{s['inicio'].strftime('%d/%m')} - {s['fin'].strftime('%d/%m')}",
+            'rango': f"{s['inicio'].strftime('%d/%m')} - {s['fin'].strftime('%d/%m')}",
+            'dia_semana': s['inicio'].strftime('%A'),  # útil si se cambia a diario
+            'es_actual': s['inicio'] <= hoy <= s['fin'],
+            'es_hoy': s['inicio'] <= hoy <= s['fin'],
+        })
+
     # --- Inicializar datos de ejecutores ---
-    ejecutores_data = {}
+    ejecutores = Suministro.objects.values_list('ejecutado_por', flat=True).distinct()
+    ejecutores_data = {e.strip(): [0] * len(semanas) for e in ejecutores if e}
+
+    # --- Llenar montos por semana ---
     for suma in suministros:
         if not suma.ejecutado_por:
             continue
         nombre = suma.ejecutado_por.strip()
-        if nombre not in ejecutores_data:
-            ejecutores_data[nombre] = [0] * len(semanas)
 
         # Fecha a usar
         fecha = suma.fecha_ejecucion or suma.fecha_programada
         if not fecha:
             continue
-        fecha_date = fecha if isinstance(fecha, datetime) else fecha
+        fecha_date = fecha if isinstance(fecha, datetime) else fecha  # ya es DateField
 
         for idx, semana in enumerate(semanas):
             if semana['inicio'] <= fecha_date <= semana['fin'] and fecha_date <= hoy:
                 monto = float(suma.monto or 0)
                 ejecutores_data[nombre][idx] += monto
 
-    # --- Totales ---
-    total_por_periodo = [0] * len(semanas)
+    # --- Totales por periodo ---
+    totales_por_periodo = [0] * len(semanas)
     for i in range(len(semanas)):
-        total_por_periodo[i] = sum(row[i] for row in ejecutores_data.values())
+        totales_por_periodo[i] = sum(row[i] for row in ejecutores_data.values())
 
+    # --- Totales generales ---
     total_ejecutores = len(ejecutores_data)
-    produccion_total = sum(total_por_periodo)
-    promedio_por_periodo = (produccion_total / total_ejecutores) if total_ejecutores else 0
+    total_general = sum(totales_por_periodo)
+    promedio_periodo = (total_general / total_ejecutores) if total_ejecutores else 0
 
-    # Top productor
+    # --- Top productor ---
     top_productor = None
     if ejecutores_data:
         top_nombre = max(ejecutores_data, key=lambda x: sum(ejecutores_data[x]))
@@ -1165,11 +1181,12 @@ def reporte_productividad(request):
         'vista': vista,
         'mes_seleccionado': mes_seleccionado,
         'semanas': semanas,
+        'periodos': periodos,
         'matriz': matriz,
-        'totales_por_periodo': total_por_periodo,
-        'total_general': produccion_total,
+        'totales_por_periodo': totales_por_periodo,
+        'total_general': total_general,
         'total_ejecutores': total_ejecutores,
-        'promedio_periodo': promedio_por_periodo,
+        'promedio_periodo': promedio_periodo,
         'top_productor': top_productor,
         'search': search,
     }
