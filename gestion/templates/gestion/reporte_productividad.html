@@ -262,4 +262,35 @@
         </div>
     </div>
 </div>
+
+
+<!-- DEPURACIÓN (temporal) -->
+<div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+    <h3 class="font-bold text-red-700 mb-2">Información de Depuración</h3>
+    <div class="grid grid-cols-2 gap-4">
+        <div>
+            <p class="text-sm"><strong>Total general (calculado):</strong> S/ {{ total_general|floatformat:2 }}</p>
+            <p class="text-sm"><strong>Total verificación (directo):</strong> S/ {{ total_verificacion|floatformat:2 }}</p>
+        </div>
+        <div>
+            <p class="text-sm"><strong>Número de ejecutores:</strong> {{ ejecutores|length }}</p>
+            <p class="text-sm"><strong>Número de meses:</strong> {{ datos_meses|length }}</p>
+        </div>
+    </div>
+    
+    <!-- Mostrar ejecutores y sus totales -->
+    <div class="mt-4">
+        <h4 class="font-semibold text-sm mb-2">Totales por ejecutor:</h4>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+            {% for ejecutor in ejecutores %}
+            <div class="text-xs p-2 bg-gray-100 rounded">
+                <span class="font-semibold">{{ ejecutor }}</span>: 
+                <span class="{% with total=totales_generales_ejecutores|slice:forloop.counter0|first %}{% if total >= 7000 %}text-red-600{% elif total >= 5000 %}text-yellow-600{% else %}text-green-600{% endif %}{% endwith %}">
+                    S/ {% with total=totales_generales_ejecutores|slice:forloop.counter0|first %}{{ total|floatformat:2 }}{% endwith %}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
 {% endblock %}
