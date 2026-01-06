@@ -1160,5 +1160,5 @@ def reporte_productividad(request):
         'total_general': total_general,
     }
 
-    return render(request, 'gestion/reporte_productividad_fecha.html', context)
+    return render(request, 'gestion/reporte_productividad.html', context)
     
