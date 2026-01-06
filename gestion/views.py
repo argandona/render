@@ -1172,4 +1172,4 @@ def reporte_productividad(request):
         'search': search,
     }
 
-    return render(request, 'reportes/productividad.html', context)
+    return render(request, 'gestion/reporte_productividad.html', context)
