@@ -1140,8 +1140,14 @@ def reporte_productividad(request):
         fecha = suma.fecha_ejecucion or suma.fecha_programada
         if not fecha:
             continue
-        fecha_date = fecha if isinstance(fecha, datetime) else fecha  # ya es DateField
-
+        #fecha_date = fecha if isinstance(fecha, datetime) else fecha  # ya es DateField
+        if isinstance(fecha, datetime):
+            fecha_date = fecha.date()
+        else:
+            fecha_date = fecha  # ya es date
+    
+    
+    
         for idx, semana in enumerate(semanas):
             if semana['inicio'] <= fecha_date <= semana['fin'] and fecha_date <= hoy:
                 monto = float(suma.monto or 0)
