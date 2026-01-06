@@ -11,7 +11,7 @@ urlpatterns = [
     path('sst/<int:sst_id>/info/', views.obtener_info_sst, name='obtener_info_sst'),
     path('suministros/<int:suministro_id>/eliminar/', views.eliminar_suministro, name='eliminar_suministro'),
     path('sst/buscar/', views.buscar_sst, name='buscar_sst'),
-    path('suministros/descargar-excel/', views.descargar_excel_suministros, name='descargar_excel_suministros')
+    path('suministros/descargar-excel/', views.descargar_excel_suministros, name='descargar_excel_suministros'),
     path('reportes/productividad/', views.reporte_productividad, name='reporte_productividad'),
 
     #path('dashboard/', views.dashboard, name='dashboard'),
