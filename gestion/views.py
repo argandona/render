@@ -1069,35 +1069,31 @@ def dashboard(request):
 
 
 # sst_app/views.py
-from django.shortcuts import render
-from django.db.models import Sum, Count, Q
-from datetime import datetime, timedelta
-from decimal import Decimal
-import calendar
-from .models import Suministro, EstadoSuministro
 
 
 from django.shortcuts import render
-from django.utils.timezone import make_aware, utc
-from datetime import datetime, timedelta
+from django.utils.timezone import make_aware
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from django.db.models import Sum, Count
+from django.db.models import Sum
 import calendar
 from collections import defaultdict
 from .models import Suministro, EstadoSuministro, Distrito
+
 
 def reporte_productividad(request):
     vista = request.GET.get('vista', 'semanal')
     mes_seleccionado = request.GET.get('mes', datetime.now().strftime('%Y-%m'))
     distrito_id = request.GET.get('distrito', '')
-    
+
     try:
         year, month = map(int, mes_seleccionado.split('-'))
     except:
         year, month = datetime.now().year, datetime.now().month
 
-    primer_dia = make_aware(datetime(year, month, 1, 0, 0, 0), timezone=utc)
-    ultimo_dia = make_aware(datetime(year, month, calendar.monthrange(year, month)[1], 23, 59, 59), timezone=utc)
+    # Primer y último día del mes con UTC
+    primer_dia = make_aware(datetime(year, month, 1, 0, 0, 0), timezone=timezone.utc)
+    ultimo_dia = make_aware(datetime(year, month, calendar.monthrange(year, month)[1], 23, 59, 59), timezone=timezone.utc)
 
     estados_validos = EstadoSuministro.objects.filter(
         estado_suministro__in=['EJECUTADO', 'DEVUELTO']
@@ -1117,34 +1113,30 @@ def reporte_productividad(request):
     # Generamos periodos
     if vista == 'semanal':
         periodos = generar_semanas_mes(year, month)
-        # Creamos diccionario: {ejecutor: {periodo_index: {'monto': x, 'cantidad': y}}}
-        data = defaultdict(lambda: defaultdict(lambda: {'monto': Decimal('0.00'), 'cantidad': 0}))
-
-        for s in suministros:
-            for i, p in enumerate(periodos):
-                inicio = make_aware(datetime.combine(p['inicio'], datetime.min.time()), timezone=utc)
-                fin = make_aware(datetime.combine(p['fin'], datetime.max.time()), timezone=utc)
-                if inicio <= s.fecha_ejecucion <= fin:
-                    data[s.ejecutado_por][i]['monto'] += s.monto
-                    data[s.ejecutado_por][i]['cantidad'] += 1
-                    break
-
-    else:  # mensual (por día)
+    else:  # mensual
         periodos = generar_dias_mes(year, month)
-        data = defaultdict(lambda: defaultdict(lambda: {'monto': Decimal('0.00'), 'cantidad': 0}))
 
-        for s in suministros:
-            for i, p in enumerate(periodos):
-                inicio = make_aware(datetime.combine(p['fecha'], datetime.min.time()), timezone=utc)
-                fin = make_aware(datetime.combine(p['fecha'], datetime.max.time()), timezone=utc)
-                if inicio <= s.fecha_ejecucion <= fin:
-                    data[s.ejecutado_por][i]['monto'] += s.monto
-                    data[s.ejecutado_por][i]['cantidad'] += 1
-                    break
+    # Diccionario: {ejecutor: {periodo_index: {'monto': x, 'cantidad': y}}}
+    data = defaultdict(lambda: defaultdict(lambda: {'monto': Decimal('0.00'), 'cantidad': 0}))
+
+    for s in suministros:
+        for i, p in enumerate(periodos):
+            if vista == 'semanal':
+                inicio = make_aware(datetime.combine(p['inicio'], datetime.min.time()), timezone=timezone.utc)
+                fin = make_aware(datetime.combine(p['fin'], datetime.max.time()), timezone=timezone.utc)
+            else:
+                inicio = make_aware(datetime.combine(p['fecha'], datetime.min.time()), timezone=timezone.utc)
+                fin = make_aware(datetime.combine(p['fecha'], datetime.max.time()), timezone=timezone.utc)
+
+            if inicio <= s.fecha_ejecucion <= fin:
+                data[s.ejecutado_por][i]['monto'] += s.monto
+                data[s.ejecutado_por][i]['cantidad'] += 1
+                break
 
     # Construimos matriz
     matriz = []
     totales_por_periodo = [Decimal('0.00')] * len(periodos)
+
     for ejecutor, periodos_data in data.items():
         fila = {'ejecutor': ejecutor, 'periodos': [], 'total': Decimal('0.00')}
         for i in range(len(periodos)):
@@ -1195,3 +1187,50 @@ def reporte_productividad(request):
     }
 
     return render(request, 'gestion/reporte_productividad.html', context)
+
+
+# Mantener tus funciones auxiliares tal cual
+def generar_semanas_mes(year, month):
+    primer_dia = datetime(year, month, 1).date()
+    ultimo_dia = datetime(year, month, calendar.monthrange(year, month)[1]).date()
+    
+    semanas = []
+    fecha_actual = primer_dia
+    num_semana = 1
+    
+    while fecha_actual <= ultimo_dia:
+        inicio_semana = fecha_actual
+        dias_hasta_domingo = 6 - fecha_actual.weekday()
+        fin_semana = fecha_actual + timedelta(days=dias_hasta_domingo)
+        if fin_semana > ultimo_dia:
+            fin_semana = ultimo_dia
+        hoy = datetime.now().date()
+        es_actual = inicio_semana <= hoy <= fin_semana
+        semanas.append({
+            'numero': num_semana,
+            'inicio': inicio_semana,
+            'fin': fin_semana,
+            'label': f"Sem {num_semana}",
+            'rango': f"{inicio_semana.strftime('%d')}-{fin_semana.strftime('%d %b')}",
+            'es_actual': es_actual
+        })
+        fecha_actual = fin_semana + timedelta(days=1)
+        num_semana += 1
+    return semanas
+
+
+def generar_dias_mes(year, month):
+    primer_dia = datetime(year, month, 1).date()
+    ultimo_dia = datetime(year, month, calendar.monthrange(year, month)[1]).date()
+    
+    dias = []
+    fecha_actual = primer_dia
+    while fecha_actual <= ultimo_dia:
+        dias.append({
+            'fecha': fecha_actual,
+            'label': fecha_actual.strftime('%d'),
+            'dia_semana': fecha_actual.strftime('%a'),
+            'es_hoy': fecha_actual == datetime.now().date()
+        })
+        fecha_actual += timedelta(days=1)
+    return dias
