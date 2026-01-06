@@ -1080,94 +1080,29 @@ from django.shortcuts import render
 from django.db.models import Sum
 from gestion.models import Suministro
 
-#def reporte_productividad(request):
-   # Obtener todos los suministros que tienen ejecutado_por
- #   suministros_con_ejecutor = Suministro.objects.exclude(
-  #      ejecutado_por__isnull=True
-   # ).exclude(
-    #    ejecutado_por=''
-    #)
+def reporte_productividad(request):
+    #Obtener todos los suministros que tienen ejecutado_por
+    suministros_con_ejecutor = Suministro.objects.exclude(
+        ejecutado_por__isnull=True
+    ).exclude(
+        ejecutado_por=''
+    )
     
-    # Agrupar por ejecutor y sumar montos
-    #resultados = suministros_con_ejecutor.values('ejecutado_por').annotate(
-     #   total_monto=Sum('monto')
-    #).order_by('ejecutado_por')
+    #Agrupar por ejecutor y sumar montos
+    resultados = suministros_con_ejecutor.values('ejecutado_por').annotate(
+        total_monto=Sum('monto')
+    ).order_by('ejecutado_por')
     
-    # Calcular total general
-    #total_general = sum(item['total_monto'] for item in resultados)
+    #Calcular total general
+    total_general = sum(item['total_monto'] for item in resultados)
     
-    #context = {
-      #  'resultados': resultados,
-     #   'total_general': total_general,
-    #}
+    context = {
+        'resultados': resultados,
+        'total_general': total_general,
+    }
     
-    #return render(request, 'gestion/reporte_productividad.html', context)
+    return render(request, 'gestion/reporte_productividad.html', context)
 
 
 
 # sst_app/views.pyfrom datetime import datetime, timedelta
-
-
-from django.shortcuts import render
-from django.db.models import Sum, Count
-from gestion.models import Suministro
-
-def reporte_productividad(request):
-    """
-    Reporte de Productividad por Ejecutor - VERSIÓN SIMPLE
-    Solo muestra ejecutores y sus totales
-    """
-    # Consulta directa - sin agrupar por mes ni semana
-    ejecutores_data = Suministro.objects.exclude(
-        ejecutado_por__isnull=True
-    ).exclude(
-        ejecutado_por=''
-    ).filter(
-        monto__gt=0
-    ).values('ejecutado_por').annotate(
-        total_monto=Sum('monto'),
-        cantidad=Count('id')
-    ).order_by('ejecutado_por')
-    
-    # Normalizar nombres (para evitar duplicados por espacios/mayúsculas)
-    ejecutores_limpios = {}
-    
-    for item in ejecutores_data:
-        nombre = item['ejecutado_por']
-        if nombre:
-            # Limpiar el nombre: quitar espacios extras y poner en mayúsculas
-            nombre_limpio = ' '.join(str(nombre).strip().split()).upper()
-            
-            if nombre_limpio in ejecutores_limpios:
-                # Si ya existe, sumar los montos
-                ejecutores_limpios[nombre_limpio]['total_monto'] += item['total_monto']
-                ejecutores_limpios[nombre_limpio]['cantidad'] += item['cantidad']
-                ejecutores_limpios[nombre_limpio]['nombres_originales'].append(nombre)
-            else:
-                # Si no existe, crear nuevo
-                ejecutores_limpios[nombre_limpio] = {
-                    'total_monto': item['total_monto'],
-                    'cantidad': item['cantidad'],
-                    'nombres_originales': [nombre]
-                }
-    
-    # Convertir a lista ordenada
-    ejecutores_final = []
-    for nombre_limpio, datos in sorted(ejecutores_limpios.items()):
-        ejecutores_final.append({
-            'ejecutor': nombre_limpio,
-            'total_monto': datos['total_monto'],
-            'cantidad': datos['cantidad'],
-            'nombres_originales': datos['nombres_originales']
-        })
-    
-    # Calcular total general
-    total_general = sum(e['total_monto'] for e in ejecutores_final)
-    
-    context = {
-        'ejecutores': ejecutores_final,
-        'total_general': total_general,
-        'total_ejecutores': len(ejecutores_final),
-    }
-    
-    return render(request, 'gestion/reporte_productividad.html', context)

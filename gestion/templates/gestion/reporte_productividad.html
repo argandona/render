@@ -1,169 +1,282 @@
 {% extends 'base.html' %}
 {% load static %}
-<!-- NO cargues custom_filters -->
-<!-- {% load custom_filters %} -->
 
 {% block title %}Reporte de Productividad por Ejecutor{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 py-8">
+<div class="max-w-6xl mx-auto px-4 py-8">
     <!-- Encabezado -->
     <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-800 flex items-center">
             <i class="fas fa-chart-line text-blue-600 mr-3"></i>
             Reporte de Productividad por Ejecutor
         </h1>
-        <p class="text-gray-600 mt-2">Total general por ejecutor</p>
+        <p class="text-gray-600 mt-2">Resumen de montos por ejecutor</p>
     </div>
     
-    <!-- Tarjeta Resumen General -->
+    <!-- Tarjeta Total General -->
     <div class="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg mb-8">
-        <div class="text-white text-sm font-semibold mb-1">
-            <i class="fas fa-money-bill-wave mr-2"></i>Producción Total General
-        </div>
-        <div class="text-4xl font-bold">S/ {{ total_general|floatformat:2 }}</div>
-        <div class="text-sm mt-2">
-            {{ total_ejecutores }} ejecutor{{ total_ejecutores|pluralize:"es" }} en total
+        <div class="flex justify-between items-center">
+            <div>
+                <div class="text-sm font-semibold opacity-90 mb-1">
+                    <i class="fas fa-money-bill-wave mr-2"></i>Producción Total
+                </div>
+                <div class="text-4xl font-bold">S/ {{ total_general|floatformat:2 }}</div>
+            </div>
+            <div class="text-right">
+                <div class="text-sm opacity-90">{{ resultados|length }} ejecutor{{ resultados|length|pluralize:"es" }}</div>
+                <div class="text-lg font-semibold mt-2">
+                    {% widthratio resultados|length 1 100 as percentage %}
+                    {{ percentage }}% activo{{ resultados|length|pluralize:"s" }}
+                </div>
+            </div>
         </div>
     </div>
     
-    <!-- Tabla Simple -->
+    <!-- Tabla de Resultados -->
     <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead>
-                <tr class="bg-gradient-to-r from-blue-500 to-blue-600">
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                        <i class="fas fa-user mr-2"></i>Ejecutor
-                    </th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                        <i class="fas fa-calculator mr-2"></i>Cantidad Suministros
-                    </th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                        <i class="fas fa-coins mr-2"></i>Total (S/)
-                    </th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                        <i class="fas fa-chart-bar mr-2"></i>Rango
-                    </th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-                {% for ejecutor in ejecutores %}
-                <tr class="hover:bg-gray-50">
-                    <!-- Columna Ejecutor -->
-                    <td class="px-6 py-4">
-                        <div class="font-semibold text-gray-900">{{ ejecutor.ejecutor }}</div>
-                        {% if ejecutor.nombres_originales|length > 1 %}
-                        <div class="text-xs text-gray-500 mt-1">
-                            <i class="fas fa-exclamation-triangle text-yellow-500 mr-1"></i>
-                            Consolidado de {{ ejecutor.nombres_originales|length }} variaciones
-                        </div>
-                        {% endif %}
-                    </td>
-                    
-                    <!-- Columna Cantidad -->
-                    <td class="px-6 py-4">
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                            {{ ejecutor.cantidad }}
-                        </span>
-                    </td>
-                    
-                    <!-- Columna Total -->
-                    <td class="px-6 py-4">
-                        <span class="text-lg font-bold 
-                            {% if ejecutor.total_monto >= 7000 %}text-red-600
-                            {% elif ejecutor.total_monto >= 5000 %}text-yellow-600
-                            {% else %}text-green-600
-                            {% endif %}">
-                            S/ {{ ejecutor.total_monto|floatformat:2 }}
-                        </span>
-                    </td>
-                    
-                    <!-- Columna Rango -->
-                    <td class="px-6 py-4">
-                        {% if ejecutor.total_monto >= 7000 %}
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                            <i class="fas fa-fire mr-1"></i> Alto
-                        </span>
-                        {% elif ejecutor.total_monto >= 5000 %}
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                            <i class="fas fa-star mr-1"></i> Medio
-                        </span>
-                        {% else %}
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                            <i class="fas fa-leaf mr-1"></i> Bajo
-                        </span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4" class="px-6 py-8 text-center text-gray-500">
-                        <i class="fas fa-inbox text-3xl mb-3 text-gray-300"></i>
-                        <p class="text-lg">No hay datos de ejecutores disponibles</p>
-                        <p class="text-sm mt-1">No se encontraron suministros con ejecutor asignado.</p>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            
-            <!-- Footer con totales -->
-            <tfoot class="bg-gray-50">
-                <tr>
-                    <td class="px-6 py-4 font-bold text-gray-700">TOTALES</td>
-                    <td class="px-6 py-4">
-                        <span class="font-bold text-gray-700">
-                            {{ ejecutores|length }} ejecutor{{ ejecutores|length|pluralize:"es" }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4">
-                        <span class="text-xl font-bold text-green-600">
-                            S/ {{ total_general|floatformat:2 }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4">
-                        <span class="text-sm text-gray-600">
-                            {{ total_ejecutores }} registro{{ total_ejecutores|pluralize:"s" }}
-                        </span>
-                    </td>
-                </tr>
-            </tfoot>
-        </table>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr class="bg-gradient-to-r from-blue-500 to-blue-600">
+                        <th class="px-6 py-4 text-left">
+                            <div class="flex items-center text-white">
+                                <i class="fas fa-user mr-2"></i>
+                                <span class="font-semibold">EJECUTOR</span>
+                            </div>
+                        </th>
+                        <th class="px-6 py-4 text-left">
+                            <div class="flex items-center text-white">
+                                <i class="fas fa-money-bill mr-2"></i>
+                                <span class="font-semibold">MONTO TOTAL (S/)</span>
+                            </div>
+                        </th>
+                        <th class="px-6 py-4 text-left">
+                            <div class="flex items-center text-white">
+                                <i class="fas fa-chart-pie mr-2"></i>
+                                <span class="font-semibold">PORCENTAJE</span>
+                            </div>
+                        </th>
+                        <th class="px-6 py-4 text-left">
+                            <div class="flex items-center text-white">
+                                <i class="fas fa-tag mr-2"></i>
+                                <span class="font-semibold">NIVEL</span>
+                            </div>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in resultados %}
+                    <tr class="hover:bg-gray-50 transition-colors duration-150">
+                        <!-- Ejecutor -->
+                        <td class="px-6 py-4">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-user-circle text-blue-600"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="font-semibold text-gray-900">
+                                        {{ item.ejecutado_por|default:"Sin nombre" }}
+                                    </div>
+                                    <div class="text-sm text-gray-500">
+                                        {% if item.ejecutado_por %}
+                                            {{ item.ejecutado_por|slice:"0:20" }}
+                                        {% else %}
+                                            Sin especificar
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        
+                        <!-- Monto Total -->
+                        <td class="px-6 py-4">
+                            <div class="text-lg font-bold 
+                                {% if item.total_monto >= 7000 %}text-red-600
+                                {% elif item.total_monto >= 5000 %}text-yellow-600
+                                {% else %}text-green-600
+                                {% endif %}">
+                                S/ {{ item.total_monto|floatformat:2 }}
+                            </div>
+                            <div class="text-sm text-gray-500 mt-1">
+                                Promedio: S/ {{ item.total_monto|floatformat:0 }}
+                            </div>
+                        </td>
+                        
+                        <!-- Porcentaje -->
+                        <td class="px-6 py-4">
+                            {% if total_general > 0 %}
+                            {% widthratio item.total_monto total_general 100 as porcentaje %}
+                            <div class="flex items-center">
+                                <div class="w-full bg-gray-200 rounded-full h-2.5 mr-3">
+                                    <div class="h-2.5 rounded-full 
+                                        {% if item.total_monto >= 7000 %}bg-red-600
+                                        {% elif item.total_monto >= 5000 %}bg-yellow-500
+                                        {% else %}bg-green-500
+                                        {% endif %}" 
+                                        style="width: {{ porcentaje }}%">
+                                    </div>
+                                </div>
+                                <span class="font-semibold text-gray-700">{{ porcentaje|floatformat:1 }}%</span>
+                            </div>
+                            {% else %}
+                            <span class="text-gray-500">0%</span>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Nivel -->
+                        <td class="px-6 py-4">
+                            {% if item.total_monto >= 7000 %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800">
+                                <i class="fas fa-fire mr-1"></i> ALTO
+                            </span>
+                            {% elif item.total_monto >= 5000 %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800">
+                                <i class="fas fa-star mr-1"></i> MEDIO
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">
+                                <i class="fas fa-leaf mr-1"></i> BAJO
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-6 py-12 text-center">
+                            <div class="text-gray-400 mb-4">
+                                <i class="fas fa-inbox text-4xl"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-700 mb-2">No hay datos disponibles</h3>
+                            <p class="text-gray-500">No se encontraron ejecutores con suministros asignados.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pie de tabla -->
+        <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
+            <div class="flex justify-between items-center">
+                <div class="text-sm text-gray-600">
+                    Mostrando <span class="font-semibold">{{ resultados|length }}</span> ejecutor{{ resultados|length|pluralize:"es" }}
+                </div>
+                <div class="text-right">
+                    <span class="font-semibold text-gray-700">Total General:</span>
+                    <span class="ml-2 text-xl font-bold text-green-600">
+                        S/ {{ total_general|floatformat:2 }}
+                    </span>
+                </div>
+            </div>
+        </div>
     </div>
     
-    <!-- Información adicional (SIN FILTRO PERSONALIZADO) -->
-    <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="bg-gray-50 p-4 rounded-lg">
-            <h3 class="font-semibold text-gray-700 mb-2">
-                <i class="fas fa-info-circle text-blue-500 mr-2"></i>Notas
-            </h3>
-            <ul class="text-sm text-gray-600 space-y-1">
-                <li>• Los nombres han sido normalizados</li>
-                <li>• Nombres similares se han consolidado</li>
-                <li>• Solo ejecutores con suministros asignados</li>
-            </ul>
+    <!-- Estadísticas Resumen -->
+    <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white p-6 rounded-xl shadow border border-gray-200">
+            <div class="flex items-center mb-4">
+                <div class="flex-shrink-0 h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-users text-blue-600 text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Ejecutores</h3>
+                    <p class="text-2xl font-bold text-gray-900">{{ resultados|length }}</p>
+                </div>
+            </div>
+            <p class="text-sm text-gray-600">Total de ejecutores con actividad registrada</p>
         </div>
         
-        <div class="bg-gray-50 p-4 rounded-lg">
-            <h3 class="font-semibold text-gray-700 mb-2">
-                <i class="fas fa-palette text-purple-500 mr-2"></i>Leyenda
-            </h3>
-            <ul class="text-sm text-gray-600 space-y-1">
-                <li><span class="text-green-600 font-semibold">Verde</span>: &lt; S/ 5,000</li>
-                <li><span class="text-yellow-600 font-semibold">Amarillo</span>: S/ 5,000-7,000</li>
-                <li><span class="text-red-600 font-semibold">Rojo</span>: &gt; S/ 7,000</li>
-            </ul>
+        <div class="bg-white p-6 rounded-xl shadow border border-gray-200">
+            <div class="flex items-center mb-4">
+                <div class="flex-shrink-0 h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-coins text-green-600 text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Producción Total</h3>
+                    <p class="text-2xl font-bold text-gray-900">S/ {{ total_general|floatformat:2 }}</p>
+                </div>
+            </div>
+            <p class="text-sm text-gray-600">Suma total de todos los montos ejecutados</p>
         </div>
         
-        <div class="bg-gray-50 p-4 rounded-lg">
-            <h3 class="font-semibold text-gray-700 mb-2">
-                <i class="fas fa-database text-green-500 mr-2"></i>Estadísticas
-            </h3>
-            <ul class="text-sm text-gray-600 space-y-1">
-                <li>• Total ejecutores: {{ total_ejecutores }}</li>
-                <li>• Producción total: S/ {{ total_general|floatformat:2 }}</li>
-                <!-- SIN LÍNEA DE PROMEDIO -->
-            </ul>
+        <div class="bg-white p-6 rounded-xl shadow border border-gray-200">
+            <div class="flex items-center mb-4">
+                <div class="flex-shrink-0 h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-chart-bar text-purple-600 text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Promedio por Ejecutor</h3>
+                    <p class="text-2xl font-bold text-gray-900">
+                        {% if resultados|length > 0 %}
+                            S/ {{ total_general|dividedby:resultados|length|floatformat:2 }}
+                        {% else %}
+                            S/ 0.00
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            <p class="text-sm text-gray-600">Producción promedio por ejecutor</p>
+        </div>
+    </div>
+    
+    <!-- Información Adicional -->
+    <div class="mt-8 p-6 bg-gray-50 rounded-xl">
+        <h3 class="font-semibold text-gray-800 mb-3 flex items-center">
+            <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+            Información del Reporte
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <h4 class="font-medium text-gray-700 mb-2">Criterios de Niveles</h4>
+                <ul class="text-sm text-gray-600 space-y-1">
+                    <li class="flex items-center">
+                        <span class="inline-block w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                        <span class="font-medium text-green-600">BAJO:</span> Menos de S/ 5,000
+                    </li>
+                    <li class="flex items-center">
+                        <span class="inline-block w-3 h-3 bg-yellow-500 rounded-full mr-2"></span>
+                        <span class="font-medium text-yellow-600">MEDIO:</span> S/ 5,000 a 7,000
+                    </li>
+                    <li class="flex items-center">
+                        <span class="inline-block w-3 h-3 bg-red-500 rounded-full mr-2"></span>
+                        <span class="font-medium text-red-600">ALTO:</span> Más de S/ 7,000
+                    </li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-medium text-gray-700 mb-2">Notas</h4>
+                <ul class="text-sm text-gray-600 space-y-1">
+                    <li>• Los datos incluyen todos los suministros ejecutados</li>
+                    <li>• Solo se muestran ejecutores con montos registrados</li>
+                    <li>• Los porcentajes se calculan sobre el total general</li>
+                    <li>• Última actualización: {% now "d/m/Y H:i" %}</li>
+                </ul>
+            </div>
         </div>
     </div>
 </div>
+
+<style>
+    /* Estilos para las barras de progreso */
+    .progress-bar {
+        transition: width 0.5s ease-in-out;
+    }
+    
+    /* Efecto hover en las filas */
+    tr:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    /* Estilos para las tarjetas */
+    .stat-card {
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+</style>
 {% endblock %}
