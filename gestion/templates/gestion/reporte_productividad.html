@@ -1,43 +1,95 @@
 {% extends 'base.html' %}
-{% block title %}Reporte Productividad por Fecha{% endblock %}
+{% block title %}Reporte Productividad - Matriz{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto px-4 py-8">
-    <h1 class="text-3xl font-bold text-gray-800 mb-6">Reporte de Productividad por Fecha</h1>
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">Reporte de Productividad - Matriz</h1>
+
+    <!-- Filtros opcionales -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <form method="GET" class="flex gap-4 items-end">
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Inicio</label>
+                <input type="date" name="fecha_inicio" value="{{ fecha_inicio }}" 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Fin</label>
+                <input type="date" name="fecha_fin" value="{{ fecha_fin }}" 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+            <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold transition">
+                Filtrar
+            </button>
+            <a href="{% url 'reporte_productividad' %}" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-semibold transition">
+                Limpiar
+            </a>
+        </form>
+    </div>
 
     {% if reporte %}
-        {% for fecha, ejecutores in reporte.items %}
-            <div class="mb-6 bg-white rounded-xl shadow-lg overflow-hidden">
-                <!-- Fecha ya formateada desde la vista -->
-                <div class="bg-blue-500 text-white px-6 py-3 font-semibold">
-                    Fecha: {{ fecha }}
-                </div>
-
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead>
-                        <tr class="bg-gray-100">
-                            <th class="px-6 py-3 text-left font-semibold">Ejecutor</th>
-                            <th class="px-6 py-3 text-left font-semibold">Monto Total (S/)</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        {% for ejecutor, monto in ejecutores.items %}
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4">{{ ejecutor }}</td>
-                            <td class="px-6 py-4 font-bold">S/ {{ monto|floatformat:2 }}</td>
-                        </tr>
+        <div class="bg-white rounded-xl shadow-lg overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-300">
+                <thead class="bg-blue-500 text-white">
+                    <tr>
+                        <th class="px-4 py-3 text-left font-bold sticky left-0 bg-blue-500">Fecha</th>
+                        {% for ejecutor in ejecutores %}
+                            <th class="px-4 py-3 text-center font-bold whitespace-nowrap">{{ ejecutor }}</th>
                         {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% endfor %}
-
-        <!-- Total general -->
-        <div class="text-right font-bold text-green-600 mt-4 text-xl">
-            Total General: S/ {{ total_general|floatformat:2 }}
+                        <th class="px-4 py-3 text-center font-bold bg-blue-600">Total</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for fila in reporte %}
+                    <tr class="hover:bg-gray-50 transition">
+                        <!-- Fecha (fija a la izquierda) -->
+                        <td class="px-4 py-3 font-semibold text-gray-800 whitespace-nowrap sticky left-0 bg-white">
+                            {{ fila.fecha }}
+                        </td>
+                        
+                        <!-- Montos por ejecutor -->
+                        {% for monto in fila.montos %}
+                            <td class="px-4 py-3 text-center {% if monto > 0 %}font-bold text-gray-900{% else %}text-gray-400{% endif %}">
+                                {% if monto > 0 %}
+                                    S/ {{ monto|floatformat:2 }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                        
+                        <!-- Total por fecha -->
+                        <td class="px-4 py-3 text-center font-bold text-green-700 bg-green-50">
+                            S/ {{ fila.total|floatformat:2 }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                
+                <!-- Fila de TOTALES POR EJECUTOR -->
+                <tfoot class="bg-gray-100 font-bold">
+                    <tr>
+                        <td class="px-4 py-3 text-right text-gray-800 sticky left-0 bg-gray-100">
+                            TOTAL POR EJECUTOR
+                        </td>
+                        {% for total in totales_por_ejecutor %}
+                            <td class="px-4 py-3 text-center text-blue-700">
+                                S/ {{ total|floatformat:2 }}
+                            </td>
+                        {% endfor %}
+                        <td class="px-4 py-3 text-center text-green-700 bg-green-100 text-lg">
+                            S/ {{ total_general|floatformat:2 }}
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
         </div>
     {% else %}
-        <p class="text-gray-500">No se encontraron registros.</p>
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg">
+            <p class="text-yellow-700 font-medium">
+                No se encontraron registros de suministros ejecutados o devueltos.
+            </p>
+        </div>
     {% endif %}
 </div>
 {% endblock %}

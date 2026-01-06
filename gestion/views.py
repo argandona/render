@@ -1128,34 +1128,40 @@ from decimal import Decimal
 from datetime import datetime
 
 
+
 from collections import defaultdict
 from decimal import Decimal
+from django.shortcuts import render
 
 def reporte_productividad(request):
     """
-    Reporte agrupado por fecha de ejecución y luego por ejecutor,
-    mostrando la suma de montos de suministros.
+    Reporte en formato MATRIZ: fechas en filas, ejecutores en columnas.
     """
-    # Filtrar solo suministros ejecutados
-    suministros = Suministro.objects.exclude(
-        ejecutado_por__isnull=True
-    ).exclude(
-        ejecutado_por=''
-    ).exclude(
-        fecha_ejecucion__isnull=True
-    ).order_by('fecha_ejecucion', 'ejecutado_por')
+    # Obtener filtros opcionales
+    fecha_inicio = request.GET.get('fecha_inicio')
+    fecha_fin = request.GET.get('fecha_fin')
+    
+    # Filtrar suministros EJECUTADOS y DEVUELTOS
+    suministros = Suministro.objects.filter(
+        ejecutado_por__isnull=False,
+        fecha_ejecucion__isnull=False,
+        estado_suministro__estado_suministro__in=['EJECUTADO', 'DEVUELTO']
+    ).exclude(ejecutado_por='')
+    
+    # Aplicar filtros de fecha si existen
+    if fecha_inicio:
+        suministros = suministros.filter(fecha_ejecucion__gte=fecha_inicio)
+    if fecha_fin:
+        suministros = suministros.filter(fecha_ejecucion__lte=fecha_fin)
+    
+    suministros = suministros.select_related('estado_suministro').order_by('fecha_ejecucion', 'ejecutado_por')
 
-    # Diccionario para agrupar datos
-    reporte_raw = defaultdict(lambda: defaultdict(lambda: Decimal('0.00')))
+    # Diccionarios para la matriz
+    matriz = defaultdict(lambda: defaultdict(lambda: Decimal('0.00')))
+    ejecutores_set = set()
+    totales_por_ejecutor = defaultdict(lambda: Decimal('0.00'))
+    totales_por_fecha = defaultdict(lambda: Decimal('0.00'))
     total_general = Decimal('0.00')
-
-    for s in suministros:
-        fecha = s.fecha_ejecucion
-        ejecutor = s.ejecutado_por
-        monto = s.monto or Decimal('0.00')
-
-        reporte_raw[fecha][ejecutor] += monto
-        total_general += monto
 
     # Meses en español
     meses = {
@@ -1163,22 +1169,55 @@ def reporte_productividad(request):
         5: 'mayo', 6: 'junio', 7: 'julio', 8: 'agosto',
         9: 'septiembre', 10: 'octubre', 11: 'noviembre', 12: 'diciembre'
     }
+
+    # Procesar suministros y construir matriz
+    fechas_ordenadas = []
+    fechas_formateadas = {}
     
-    # Ordenar por fecha y formatear EXPLÍCITAMENTE
-    reporte = {}
-    for fecha in sorted(reporte_raw.keys()):
-        # Usar los atributos .day, .month, .year directamente
-        # Esto garantiza que siempre se interprete correctamente
-        dia = fecha.day
-        mes = meses[fecha.month]
-        año = fecha.year
-        
-        fecha_formateada = f"{dia:02d} de {mes} de {año}"
-        reporte[fecha_formateada] = dict(reporte_raw[fecha])
+    for s in suministros:
+        fecha = s.fecha_ejecucion
+        ejecutor = s.ejecutado_por.strip().title()
+        monto = s.monto or Decimal('0.00')
+
+        # Formatear fecha
+        if fecha not in fechas_formateadas:
+            dia = fecha.day
+            mes = meses[fecha.month]
+            año = fecha.year
+            fecha_formateada = f"{dia:02d} de {mes} de {año}"
+            fechas_formateadas[fecha] = fecha_formateada
+            fechas_ordenadas.append(fecha)
+
+        # Llenar matriz
+        matriz[fecha][ejecutor] += monto
+        ejecutores_set.add(ejecutor)
+        totales_por_ejecutor[ejecutor] += monto
+        totales_por_fecha[fecha] += monto
+        total_general += monto
+
+    # Ordenar ejecutores alfabéticamente
+    ejecutores = sorted(ejecutores_set)
+    
+    # Ordenar fechas
+    fechas_ordenadas = sorted(set(fechas_ordenadas))
+
+    # Construir estructura final para el template
+    reporte = []
+    for fecha in fechas_ordenadas:
+        fila = {
+            'fecha': fechas_formateadas[fecha],
+            'montos': [matriz[fecha][ejecutor] for ejecutor in ejecutores],
+            'total': totales_por_fecha[fecha]
+        }
+        reporte.append(fila)
 
     context = {
         'reporte': reporte,
+        'ejecutores': ejecutores,
+        'totales_por_ejecutor': [totales_por_ejecutor[ejecutor] for ejecutor in ejecutores],
         'total_general': total_general,
+        'fecha_inicio': fecha_inicio,
+        'fecha_fin': fecha_fin,
     }
 
     return render(request, 'gestion/reporte_productividad.html', context)
