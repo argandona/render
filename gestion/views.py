@@ -1106,12 +1106,14 @@ from gestion.models import Suministro
 
 
 # sst_app/views.py
+
 from datetime import datetime, timedelta
 from django.shortcuts import render
 from django.utils import timezone
 from django.db.models import Sum
 from gestion.models import Suministro
 from collections import defaultdict
+import re
 
 def reporte_productividad(request):
     """
@@ -1125,17 +1127,38 @@ def reporte_productividad(request):
         ejecutado_por=''
     )
     
-    # Obtener lista única de ejecutores (ordenados)
-    ejecutores = sorted(list(
-        suministros_con_ejecutor.values_list('ejecutado_por', flat=True).distinct()
-    ))
+    # Obtener lista única de ejecutores - NORMALIZANDO NOMBRES
+    ejecutores_raw = suministros_con_ejecutor.values_list('ejecutado_por', flat=True).distinct()
+    
+    # Normalizar nombres: quitar espacios extras, uniformizar mayúsculas
+    ejecutores_normalizados = {}
+    for ejecutor in ejecutores_raw:
+        if ejecutor:
+            # Quitar espacios al inicio y final, y convertir a título
+            nombre_normalizado = ' '.join(ejecutor.strip().split()).upper()
+            ejecutores_normalizados[nombre_normalizado] = ejecutores_normalizados.get(nombre_normalizado, 0) + 1
+    
+    # Ordenar ejecutores alfabéticamente
+    ejecutores = sorted(ejecutores_normalizados.keys())
+    
+    # Si quieres ver qué nombres están duplicados:
+    print("Ejecutores normalizados:", ejecutores_normalizados)
     
     # Agrupar suministros por mes y semana
-    # Primero, organizar por fecha
     suministros_por_fecha = defaultdict(list)
+    
     for suministro in suministros_con_ejecutor:
         if suministro.fecha_ejecucion:
             fecha_key = suministro.fecha_ejecucion.strftime('%Y-%m')
+            
+            # Normalizar el nombre del ejecutor para este suministro
+            if suministro.ejecutado_por:
+                ejecutor_normalizado = ' '.join(suministro.ejecutado_por.strip().split()).upper()
+                # Reemplazar el ejecutado_por con la versión normalizada temporalmente
+                suministro.ejecutado_por_normalizado = ejecutor_normalizado
+            else:
+                suministro.ejecutado_por_normalizado = None
+            
             suministros_por_fecha[fecha_key].append(suministro)
     
     # Ordenar meses (más reciente primero)
@@ -1155,18 +1178,42 @@ def reporte_productividad(request):
         else:
             ultimo_dia = datetime(año, mes + 1, 1).date() - timedelta(days=1)
         
-        # Generar semanas del mes
+        # Generar semanas del mes considerando semanas completas (lunes a domingo)
         semanas = []
         dia_actual = primer_dia
+        
+        # Ajustar para que la primera semana empiece en lunes
+        # Si el primer día no es lunes, retroceder hasta el lunes anterior
+        while dia_actual.weekday() != 0 and dia_actual > primer_dia - timedelta(days=7):
+            dia_actual -= timedelta(days=1)
+        
+        # Si retrocedimos demasiado, avanzar al lunes de la semana del primer día
+        if dia_actual < primer_dia:
+            dia_actual = primer_dia
+            while dia_actual.weekday() != 0:
+                dia_actual -= timedelta(days=1)
+        
         while dia_actual <= ultimo_dia:
             semana_inicio = dia_actual
             semana_fin = min(dia_actual + timedelta(days=6), ultimo_dia)
-            semanas.append({
-                'inicio': semana_inicio,
-                'fin': semana_fin,
-                'label': f"{semana_inicio.strftime('%d/%m')} - {semana_fin.strftime('%d/%m')}",
-                'key': f"{semana_inicio.strftime('%Y-%m-%d')}_{semana_fin.strftime('%Y-%m-%d')}"
-            })
+            
+            # Solo agregar semanas que tengan al menos 1 día dentro del mes
+            if semana_inicio <= ultimo_dia:
+                # Formatear etiqueta según la duración de la semana
+                if semana_fin - semana_inicio < timedelta(days=6):
+                    # Semana incompleta (al inicio o fin de mes)
+                    etiqueta = f"{semana_inicio.strftime('%d/%m')} - {semana_fin.strftime('%d/%m')}"
+                else:
+                    # Semana completa
+                    etiqueta = f"Semana {(dia_actual.day // 7) + 1}"
+                
+                semanas.append({
+                    'inicio': semana_inicio,
+                    'fin': semana_fin,
+                    'label': etiqueta,
+                    'key': f"{semana_inicio.strftime('%Y-%m-%d')}_{semana_fin.strftime('%Y-%m-%d')}"
+                })
+            
             dia_actual = semana_fin + timedelta(days=1)
         
         # Filtrar suministros de este mes
@@ -1177,7 +1224,7 @@ def reporte_productividad(request):
         
         for suministro in suministros_mes:
             fecha = suministro.fecha_ejecucion
-            ejecutor = suministro.ejecutado_por.strip()
+            ejecutor = suministro.ejecutado_por_normalizado  # Usar la versión normalizada
             monto = float(suministro.monto or 0)
             
             # Encontrar en qué semana cae
@@ -1213,10 +1260,17 @@ def reporte_productividad(request):
             total = sum(matriz_data.get((idx, ejecutor), 0) for idx in range(len(semanas)))
             totales_ejecutores_mes.append(total)
         
+        # Nombres de meses en español
+        meses_espanol = {
+            1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+            5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
+            9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+        }
+        
         # Agregar datos del mes
         datos_meses.append({
             'mes_key': mes_key,
-            'mes_nombre': primer_dia.strftime('%B %Y'),
+            'mes_nombre': f"{meses_espanol.get(mes, mes)} {año}",
             'semanas': semanas,
             'matriz': matriz_mes,
             'totales_ejecutores': totales_ejecutores_mes,

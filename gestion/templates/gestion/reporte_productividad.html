@@ -213,31 +213,33 @@
     </div>
     {% endfor %}
     
+   
+
     <!-- Totales Generales por Ejecutor -->
-    {% if datos_meses %}
-    <div class="mt-8 bg-white rounded-xl shadow-lg p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4">
-            <i class="fas fa-chart-bar text-purple-600 mr-2"></i>
-            Totales Generales por Ejecutor
-        </h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {% for ejecutor in ejecutores %}
-            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <div class="text-gray-600 text-sm font-semibold">{{ ejecutor }}</div>
-                {% with total=totales_generales_ejecutores.forloop.counter0 %}
-                <div class="text-xl font-bold mt-2
-                    {% if total >= 7000 %}text-red-600
-                    {% elif total >= 5000 %}text-yellow-600
-                    {% else %}text-green-600
-                    {% endif %}">
-                    S/ {{ total|floatformat:2 }}
-                </div>
-                {% endwith %}
+{% if datos_meses %}
+<div class="mt-8 bg-white rounded-xl shadow-lg p-6">
+    <h3 class="text-lg font-bold text-gray-800 mb-4">
+        <i class="fas fa-chart-bar text-purple-600 mr-2"></i>
+        Totales Generales por Ejecutor
+    </h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {% for ejecutor in ejecutores %}
+        {% with total=totales_generales_ejecutores|slice:forloop.counter0|first %}
+        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <div class="text-gray-600 text-sm font-semibold">{{ ejecutor }}</div>
+            <div class="text-xl font-bold mt-2
+                {% if total >= 7000 %}text-red-600
+                {% elif total >= 5000 %}text-yellow-600
+                {% else %}text-green-600
+                {% endif %}">
+                S/ {{ total|floatformat:2 }}
             </div>
-            {% endfor %}
         </div>
+        {% endwith %}
+        {% endfor %}
     </div>
-    {% endif %}
+</div>
+{% endif %}
     
     <!-- Leyenda -->
     <div class="mt-6 bg-gray-50 rounded-lg p-4">
