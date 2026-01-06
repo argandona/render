@@ -1139,6 +1139,11 @@ from .models import Suministro
 from collections import defaultdict
 from decimal import Decimal
 
+
+
+from collections import defaultdict
+from decimal import Decimal
+
 def reporte_productividad(request):
     """
     Reporte agrupado por fecha de ejecución y luego por ejecutor,
@@ -1146,15 +1151,15 @@ def reporte_productividad(request):
     """
     # Filtrar solo suministros ejecutados
     suministros = Suministro.objects.exclude(
-    ejecutado_por__isnull=True
-).exclude(
-    ejecutado_por=''
-).exclude(
-    fecha_ejecucion__isnull=True  # <-- Esta línea evita filas con fecha vacía
-).order_by('fecha_ejecucion', 'ejecutado_por')
+        ejecutado_por__isnull=True
+    ).exclude(
+        ejecutado_por=''
+    ).exclude(
+        fecha_ejecucion__isnull=True
+    ).order_by('fecha_ejecucion', 'ejecutado_por')
 
     # Diccionario para agrupar datos
-    reporte = defaultdict(lambda: defaultdict(lambda: Decimal('0.00')))
+    reporte_raw = defaultdict(lambda: defaultdict(lambda: Decimal('0.00')))
     total_general = Decimal('0.00')
 
     for s in suministros:
@@ -1162,11 +1167,21 @@ def reporte_productividad(request):
         ejecutor = s.ejecutado_por
         monto = s.monto or Decimal('0.00')
 
-        reporte[fecha][ejecutor] += monto
+        reporte_raw[fecha][ejecutor] += monto
         total_general += monto
 
-    # Convertir defaultdict a dict normal para pasar al template
-    reporte = {fecha: dict(ejecutores) for fecha, ejecutores in reporte.items()}
+    # Convertir fechas a formato legible en español
+    meses = {
+        1: 'enero', 2: 'febrero', 3: 'marzo', 4: 'abril',
+        5: 'mayo', 6: 'junio', 7: 'julio', 8: 'agosto',
+        9: 'septiembre', 10: 'octubre', 11: 'noviembre', 12: 'diciembre'
+    }
+    
+    # Ordenar por fecha y formatear
+    reporte = {}
+    for fecha in sorted(reporte_raw.keys()):
+        fecha_formateada = f"{fecha.day:02d} de {meses[fecha.month]} de {fecha.year}"
+        reporte[fecha_formateada] = dict(reporte_raw[fecha])
 
     context = {
         'reporte': reporte,
