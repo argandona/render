@@ -1075,96 +1075,33 @@ def dashboard(request):
 # sst_app/views.
 
 
-# sst_app/views.pyfrom datetime import datetime, timedelta
+# sst_app/views.py
 from django.shortcuts import render
-from django.utils import timezone
 from django.db.models import Sum
 from gestion.models import Suministro
-from collections import defaultdict
 
 def reporte_productividad(request):
     """
-    Reporte simplificado: Fechas (filas) x Ejecutores (columnas) = Montos
-    SIN FILTROS - Muestra el mes actual siempre
+    Reporte simple: Ejecutor y suma total de montos (sin filtros de fecha)
     """
     
-    # Usar mes actual siempre (ignorar parámetros GET antiguos)
-    hoy = timezone.now().date()
-    año, mes = hoy.year, hoy.month
+    # Obtener todos los suministros que tienen ejecutado_por
+    suministros_con_ejecutor = Suministro.objects.exclude(
+        ejecutado_por__isnull=True
+    ).exclude(
+        ejecutado_por=''
+    )
     
-    # Calcular rango del mes
-    primer_dia = datetime(año, mes, 1).date()
-    if mes == 12:
-        ultimo_dia = datetime(año + 1, 1, 1).date() - timedelta(days=1)
-    else:
-        ultimo_dia = datetime(año, mes + 1, 1).date() - timedelta(days=1)
+    # Agrupar por ejecutor y sumar montos
+    resultados = suministros_con_ejecutor.values('ejecutado_por').annotate(
+        total_monto=Sum('monto')
+    ).order_by('ejecutado_por')
     
-    # Obtener suministros del mes
-    suministros = Suministro.objects.filter(
-        fecha_ejecucion__gte=primer_dia,
-        fecha_ejecucion__lte=ultimo_dia,
-        ejecutado_por__isnull=False
-    ).exclude(ejecutado_por='')
-    
-    # Obtener lista única de ejecutores
-    ejecutores = sorted(list(suministros.values_list('ejecutado_por', flat=True).distinct()))
-    
-    # Generar semanas del mes
-    semanas = []
-    dia_actual = primer_dia
-    while dia_actual <= ultimo_dia:
-        semana_inicio = dia_actual
-        semana_fin = min(dia_actual + timedelta(days=6), ultimo_dia)
-        semanas.append({
-            'inicio': semana_inicio,
-            'fin': semana_fin,
-            'label': f"{semana_inicio.strftime('%d/%m')} - {semana_fin.strftime('%d/%m')}"
-        })
-        dia_actual = semana_fin + timedelta(days=1)
-    
-    # Crear matriz: {(semana_idx, ejecutor): monto}
-    matriz_data = defaultdict(float)
-    
-    for suministro in suministros:
-        fecha = suministro.fecha_ejecucion
-        ejecutor = suministro.ejecutado_por.strip()
-        monto = float(suministro.monto or 0)
-        
-        # Encontrar en qué semana cae
-        for idx, semana in enumerate(semanas):
-            if semana['inicio'] <= fecha <= semana['fin']:
-                matriz_data[(idx, ejecutor)] += monto
-                break
-    
-    # Preparar matriz para template
-    matriz = []
-    for idx, semana in enumerate(semanas):
-        fila = {
-            'semana': semana['label'],
-            'montos': []
-        }
-        total_fila = 0
-        for ejecutor in ejecutores:
-            monto = matriz_data.get((idx, ejecutor), 0)
-            fila['montos'].append(monto)
-            total_fila += monto
-        fila['total'] = total_fila
-        matriz.append(fila)
-    
-    # Totales por ejecutor (columnas)
-    totales_ejecutores = []
-    for ejecutor in ejecutores:
-        total = sum(matriz_data.get((idx, ejecutor), 0) for idx in range(len(semanas)))
-        totales_ejecutores.append(total)
-    
-    # Total general
-    total_general = sum(totales_ejecutores)
+    # Calcular total general
+    total_general = sum(item['total_monto'] for item in resultados)
     
     context = {
-        'mes_actual': hoy.strftime('%B %Y'),
-        'ejecutores': ejecutores,
-        'matriz': matriz,
-        'totales_ejecutores': totales_ejecutores,
+        'resultados': resultados,
         'total_general': total_general,
     }
     
