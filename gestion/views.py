@@ -1121,28 +1121,11 @@ def reporte_productividad(request):
     
     return render(request, 'gestion/reporte_productividad.html', context)"""
     
-    
-    
-from django.shortcuts import render
-from django.db.models import Sum
-from django.db.models.functions import TruncDate
-from .models import Suministro
-from collections import defaultdict
-
-
-    
-
-
-from django.shortcuts import render
-from django.db.models import Sum
-from .models import Suministro
+   
+   
 from collections import defaultdict
 from decimal import Decimal
-
-
-
-from collections import defaultdict
-from decimal import Decimal
+from datetime import datetime
 
 def reporte_productividad(request):
     """
@@ -1177,10 +1160,14 @@ def reporte_productividad(request):
         9: 'septiembre', 10: 'octubre', 11: 'noviembre', 12: 'diciembre'
     }
     
-    # Ordenar por fecha y formatear
+    # Ordenar por fecha y formatear - USANDO strftime
     reporte = {}
     for fecha in sorted(reporte_raw.keys()):
-        fecha_formateada = f"{fecha.day:02d} de {meses[fecha.month]} de {fecha.year}"
+        # Usar strftime para asegurar el formato correcto
+        dia = fecha.strftime('%d')
+        mes = meses[int(fecha.strftime('%m'))]
+        año = fecha.strftime('%Y')
+        fecha_formateada = f"{dia} de {mes} de {año}"
         reporte[fecha_formateada] = dict(reporte_raw[fecha])
 
     context = {
