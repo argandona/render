@@ -1129,9 +1129,20 @@ from django.db.models.functions import TruncDate
 from .models import Suministro
 from collections import defaultdict
 
+
+    
+
+
+from django.shortcuts import render
+from django.db.models import Sum
+from .models import Suministro
+from collections import defaultdict
+from decimal import Decimal
+
 def reporte_productividad(request):
     """
-    Reporte agrupado por fecha y luego por ejecutor
+    Reporte agrupado por fecha de ejecución y luego por ejecutor,
+    mostrando la suma de montos de suministros.
     """
     # Filtrar solo suministros ejecutados
     suministros = Suministro.objects.exclude(
@@ -1161,4 +1172,3 @@ def reporte_productividad(request):
     }
 
     return render(request, 'gestion/reporte_productividad.html', context)
-    

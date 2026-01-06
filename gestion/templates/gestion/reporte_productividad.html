@@ -1,5 +1,3 @@
-
-
 {% extends 'base.html' %}
 {% block title %}Reporte Productividad por Fecha{% endblock %}
 
@@ -10,9 +8,11 @@
     {% if reporte %}
         {% for fecha, ejecutores in reporte.items %}
             <div class="mb-6 bg-white rounded-xl shadow-lg overflow-hidden">
+                <!-- Fecha formateada en español -->
                 <div class="bg-blue-500 text-white px-6 py-3 font-semibold">
-                    Fecha: {{ fecha }}
+                    Fecha: {{ fecha|date:"d \d\e F \d\e Y" }}
                 </div>
+
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead>
                         <tr class="bg-gray-100">
@@ -32,6 +32,7 @@
             </div>
         {% endfor %}
 
+        <!-- Total general -->
         <div class="text-right font-bold text-green-600 mt-4">
             Total General: S/ {{ total_general|floatformat:2 }}
         </div>
