@@ -1072,6 +1072,7 @@ def dashboard(request):
 
 
 
+
 from django.shortcuts import render
 from django.db.models import Sum, F
 from django.utils import timezone
@@ -1089,7 +1090,7 @@ def reporte_productividad(request):
     mes_seleccionado = request.GET.get('mes')    # ejemplo: '2026-01'
     search = request.GET.get('search', '')
 
-    # Fecha actual y hoy solo con fecha (no datetime)
+    # Fecha actual
     hoy = timezone.now().date()
 
     # --- Filtrar SST que tengan programación o suministros ejecutados ---
@@ -1103,14 +1104,10 @@ def reporte_productividad(request):
 
     # --- Preparar matriz de semanas ---
     semanas = []
-    totals_por_semana = []
 
-    # Si el usuario elige vista semanal
     if vista == 'semanal' and mes_seleccionado:
         año, mes = map(int, mes_seleccionado.split('-'))
-        # Primer día del mes
         primer_dia = datetime(año, mes, 1).date()
-        # Último día del mes
         if mes == 12:
             ultimo_dia = datetime(año+1, 1, 1).date() - timedelta(days=1)
         else:
@@ -1134,10 +1131,12 @@ def reporte_productividad(request):
             if nombre not in ejecutores_data:
                 ejecutores_data[nombre] = [0] * len(semanas)
 
+            # Convertir prog.fecha a date para comparación segura
+            prog_fecha_date = prog.fecha.date() if isinstance(prog.fecha, datetime) else prog.fecha
+
             # Solo contar montos si la fecha está dentro de la semana y no es futura
             for idx, semana in enumerate(semanas):
-                if semana['inicio'] <= prog.fecha <= semana['fin'] and prog.fecha <= hoy:
-                    # Sumar monto de los suministros asociados al SST
+                if semana['inicio'] <= prog_fecha_date <= semana['fin'] and prog_fecha_date <= hoy:
                     monto_sst = sst.monto_total_suministros
                     ejecutores_data[nombre][idx] += monto_sst
 
