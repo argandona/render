@@ -1,57 +1,42 @@
-{% extends 'base.html' %}
-{% load static %}
 
-{% block title %}Reporte de Productividad por Ejecutor{% endblock %}
+
+{% extends 'base.html' %}
+{% block title %}Reporte Productividad por Fecha{% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-8">
-    <!-- Encabezado -->
-    <div class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-800 flex items-center">
-            <i class="fas fa-chart-line text-blue-600 mr-3"></i>
-            Reporte de Productividad por Ejecutor
-        </h1>
-        <p class="text-gray-600 mt-1">Resumen de montos por ejecutor</p>
-    </div>
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">Reporte de Productividad por Fecha</h1>
 
-    <!-- Tabla de Resultados -->
-    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead>
-                    <tr class="bg-blue-500 text-white">
-                        <th class="px-6 py-3 text-left font-semibold">Ejecutor</th>
-                        <th class="px-6 py-3 text-left font-semibold">Monto Total (S/)</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                    {% for item in resultados %}
-                    <tr class="hover:bg-gray-50 transition-colors duration-150">
-                        <td class="px-6 py-4">
-                            {{ item.ejecutado_por|default:"Sin nombre" }}
-                        </td>
-                        <td class="px-6 py-4 font-bold">
-                            S/ {{ item.total_monto|floatformat:2 }}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="2" class="px-6 py-12 text-center text-gray-500">
-                            No se encontraron ejecutores con montos registrados.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    {% if reporte %}
+        {% for fecha, ejecutores in reporte.items %}
+            <div class="mb-6 bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="bg-blue-500 text-white px-6 py-3 font-semibold">
+                    Fecha: {{ fecha }}
+                </div>
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="px-6 py-3 text-left font-semibold">Ejecutor</th>
+                            <th class="px-6 py-3 text-left font-semibold">Monto Total (S/)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for ejecutor, monto in ejecutores.items %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4">{{ ejecutor }}</td>
+                            <td class="px-6 py-4 font-bold">S/ {{ monto|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endfor %}
 
-        <!-- Pie de tabla -->
-        <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 text-right">
-            <span class="font-semibold text-gray-700">Total General:</span>
-            <span class="ml-2 font-bold text-green-600">
-                S/ {{ total_general|floatformat:2 }}
-            </span>
+        <div class="text-right font-bold text-green-600 mt-4">
+            Total General: S/ {{ total_general|floatformat:2 }}
         </div>
-    </div>
+    {% else %}
+        <p class="text-gray-500">No se encontraron registros.</p>
+    {% endif %}
 </div>
 {% endblock %}

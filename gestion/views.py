@@ -1077,15 +1077,15 @@ def dashboard(request):
 
 # sst_app/views.py
 
-
+"""
 from django.shortcuts import render
 from django.db.models import Sum
 
 def reporte_productividad(request):
-    """
+  
     Vista para mostrar el reporte de productividad por ejecutor
     Maneja correctamente valores None y tablas vacías
-    """
+   
     try:
         # Obtener suministros con ejecutor
         suministros_con_ejecutor = Suministro.objects.exclude(
@@ -1119,4 +1119,46 @@ def reporte_productividad(request):
         'promedio_por_ejecutor': promedio_por_ejecutor,
     }
     
-    return render(request, 'gestion/reporte_productividad.html', context)
+    return render(request, 'gestion/reporte_productividad.html', context)"""
+    
+    
+    
+from django.shortcuts import render
+from django.db.models import Sum
+from django.db.models.functions import TruncDate
+from .models import Suministro
+from collections import defaultdict
+
+def reporte_productividad(request):
+    """
+    Reporte agrupado por fecha y luego por ejecutor
+    """
+    # Filtrar solo suministros ejecutados
+    suministros = Suministro.objects.exclude(
+        ejecutado_por__isnull=True
+    ).exclude(
+        ejecutado_por=''
+    ).order_by('fecha_ejecucion', 'ejecutado_por')
+
+    # Diccionario para agrupar datos
+    reporte = defaultdict(lambda: defaultdict(lambda: Decimal('0.00')))
+    total_general = Decimal('0.00')
+
+    for s in suministros:
+        fecha = s.fecha_ejecucion
+        ejecutor = s.ejecutado_por
+        monto = s.monto or Decimal('0.00')
+
+        reporte[fecha][ejecutor] += monto
+        total_general += monto
+
+    # Convertir defaultdict a dict normal para pasar al template
+    reporte = {fecha: dict(ejecutores) for fecha, ejecutores in reporte.items()}
+
+    context = {
+        'reporte': reporte,
+        'total_general': total_general,
+    }
+
+    return render(request, 'gestion/reporte_productividad_fecha.html', context)
+    
