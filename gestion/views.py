@@ -1120,7 +1120,12 @@ def reporte_productividad(request):
     if vista == 'semanal' and mes_seleccionado:
         año, mes = map(int, mes_seleccionado.split('-'))
         primer_dia = datetime(año, mes, 1).date()
-        ultimo_dia = (datetime(año + (mes // 12), (mes % 12) + 1, 1).date() - timedelta(days=1))
+        
+        # Calcular último día del mes correctamente
+        if mes == 12:
+            ultimo_dia = datetime(año + 1, 1, 1).date() - timedelta(days=1)
+        else:
+            ultimo_dia = datetime(año, mes + 1, 1).date() - timedelta(days=1)
 
         dia_actual = primer_dia
         while dia_actual <= ultimo_dia:
@@ -1128,6 +1133,9 @@ def reporte_productividad(request):
             semana_fin = min(dia_actual + timedelta(days=6), ultimo_dia)
             semanas.append({'inicio': semana_inicio, 'fin': semana_fin})
             dia_actual = semana_fin + timedelta(days=1)
+    
+    # DEBUG: Agregar print para verificar
+    print(f"DEBUG - Vista: {vista}, Mes: {mes_seleccionado}, Semanas generadas: {len(semanas)}")
 
     # --- Preparar periodos para template ---
     periodos = []
