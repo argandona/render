@@ -1076,10 +1076,13 @@ def dashboard(request):
 
 
 # sst_app/views.py
+
+
 from datetime import datetime, timedelta
 from decimal import Decimal
 from django.shortcuts import render
 from django.utils import timezone
+from django.db.models import Q
 from gestion.models import Suministro
 
 def reporte_productividad(request):
@@ -1098,6 +1101,17 @@ def reporte_productividad(request):
 
     # --- Obtener suministros filtrados ---
     suministros = Suministro.objects.all()
+    
+    # ✅ FILTRO POR MES SELECCIONADO
+    if mes_seleccionado:
+        año, mes = map(int, mes_seleccionado.split('-'))
+        # Filtrar por fecha_ejecucion O fecha_programada del mes seleccionado
+        suministros = suministros.filter(
+            Q(fecha_ejecucion__year=año, fecha_ejecucion__month=mes) |
+            Q(fecha_programada__year=año, fecha_programada__month=mes, fecha_ejecucion__isnull=True)
+        )
+    
+    # Filtro por búsqueda de ejecutor
     if search:
         suministros = suministros.filter(ejecutado_por__icontains=search)
 
@@ -1121,13 +1135,13 @@ def reporte_productividad(request):
         periodos.append({
             'label': f"{s['inicio'].strftime('%d/%m')} - {s['fin'].strftime('%d/%m')}",
             'rango': f"{s['inicio'].strftime('%d/%m')} - {s['fin'].strftime('%d/%m')}",
-            'dia_semana': s['inicio'].strftime('%A'),  # útil si se cambia a diario
+            'dia_semana': s['inicio'].strftime('%A'),
             'es_actual': s['inicio'] <= hoy <= s['fin'],
             'es_hoy': s['inicio'] <= hoy <= s['fin'],
         })
 
     # --- Inicializar datos de ejecutores ---
-    ejecutores = Suministro.objects.values_list('ejecutado_por', flat=True).distinct()
+    ejecutores = suministros.values_list('ejecutado_por', flat=True).distinct()
     ejecutores_data = {e.strip(): [0] * len(semanas) for e in ejecutores if e}
 
     # --- Llenar montos por semana ---
@@ -1136,18 +1150,18 @@ def reporte_productividad(request):
             continue
         nombre = suma.ejecutado_por.strip()
 
-        # Fecha a usar
+        # Fecha a usar (priorizar fecha_ejecucion)
         fecha = suma.fecha_ejecucion or suma.fecha_programada
         if not fecha:
             continue
-        #fecha_date = fecha if isinstance(fecha, datetime) else fecha  # ya es DateField
+        
+        # Convertir a date si es datetime
         if isinstance(fecha, datetime):
             fecha_date = fecha.date()
         else:
-            fecha_date = fecha  # ya es date
-    
-    
-    
+            fecha_date = fecha
+        
+        # Asignar monto a la semana correspondiente
         for idx, semana in enumerate(semanas):
             if semana['inicio'] <= fecha_date <= semana['fin'] and fecha_date <= hoy:
                 monto = float(suma.monto or 0)
@@ -1177,15 +1191,33 @@ def reporte_productividad(request):
     for nombre, montos in ejecutores_data.items():
         fila = {
             'ejecutor': nombre,
-            'periodos': [{'monto': monto} for monto in montos],
+            'periodos': [{'monto': monto, 'cantidad': 0} for monto in montos],
             'total': sum(montos)
         }
         matriz.append(fila)
+    
+    # Ordenar matriz por total descendente
+    matriz.sort(key=lambda x: x['total'], reverse=True)
+
+    # --- Preparar meses disponibles para el selector ---
+    meses_disponibles = []
+    fecha_actual = hoy
+    for i in range(12):
+        mes_fecha = fecha_actual - timedelta(days=30*i)
+        meses_disponibles.append({
+            'valor': mes_fecha.strftime('%Y-%m'),
+            'nombre': mes_fecha.strftime('%B %Y')
+        })
+    
+    # Si no hay mes seleccionado, usar el mes actual
+    if not mes_seleccionado:
+        mes_seleccionado = hoy.strftime('%Y-%m')
 
     # --- Contexto ---
     context = {
         'vista': vista,
         'mes_seleccionado': mes_seleccionado,
+        'meses_disponibles': meses_disponibles,
         'semanas': semanas,
         'periodos': periodos,
         'matriz': matriz,
