@@ -1106,203 +1106,68 @@ from gestion.models import Suministro
 
 
 # sst_app/views.pyfrom datetime import datetime, timedelta
+
+
 from django.shortcuts import render
-from django.db.models import Sum
+from django.db.models import Sum, Count
 from gestion.models import Suministro
-from collections import defaultdict
-from decimal import Decimal
 
 def reporte_productividad(request):
     """
-    Reporte simplificado y directo
+    Reporte de Productividad por Ejecutor - VERSIÓN SIMPLE
+    Solo muestra ejecutores y sus totales
     """
-    
-    # 1. OBTENER EJECUTORES ÚNICOS CORRECTAMENTE
-    ejecutores_query = Suministro.objects.exclude(
+    # Consulta directa - sin agrupar por mes ni semana
+    ejecutores_data = Suministro.objects.exclude(
         ejecutado_por__isnull=True
     ).exclude(
         ejecutado_por=''
     ).filter(
-        fecha_ejecucion__isnull=False
-    ).values_list('ejecutado_por', flat=True).distinct()
-    
-    # Limpiar nombres
-    ejecutores = []
-    ejecutores_originales = {}  # Mapa de nombres limpios a originales
-    
-    for ejecutor in ejecutores_query:
-        if ejecutor:
-            # Limpiar espacios
-            ejecutor_limpio = ' '.join(str(ejecutor).strip().split())
-            
-            # Verificar si ya existe (case-insensitive)
-            encontrado = False
-            for ej in ejecutores:
-                if ej.upper() == ejecutor_limpio.upper():
-                    encontrado = True
-                    break
-            
-            if not encontrado:
-                ejecutores.append(ejecutor_limpio.upper())
-                ejecutores_originales[ejecutor_limpio.upper()] = ejecutor
-    
-    ejecutores.sort()
-    
-    # 2. OBTENER TODOS LOS SUMINISTROS VÁLIDOS
-    suministros = Suministro.objects.exclude(
-        ejecutado_por__isnull=True
-    ).exclude(
-        ejecutado_por=''
-    ).filter(
-        fecha_ejecucion__isnull=False,
         monto__gt=0
-    ).select_related('sst').only(
-        'ejecutado_por', 'monto', 'fecha_ejecucion'
-    )
+    ).values('ejecutado_por').annotate(
+        total_monto=Sum('monto'),
+        cantidad=Count('id')
+    ).order_by('ejecutado_por')
     
-    print(f"Total suministros a procesar: {suministros.count()}")
-    print(f"Ejecutores encontrados: {ejecutores}")
+    # Normalizar nombres (para evitar duplicados por espacios/mayúsculas)
+    ejecutores_limpios = {}
     
-    # 3. AGRUPAR POR MES
-    suministros_por_mes = defaultdict(list)
+    for item in ejecutores_data:
+        nombre = item['ejecutado_por']
+        if nombre:
+            # Limpiar el nombre: quitar espacios extras y poner en mayúsculas
+            nombre_limpio = ' '.join(str(nombre).strip().split()).upper()
+            
+            if nombre_limpio in ejecutores_limpios:
+                # Si ya existe, sumar los montos
+                ejecutores_limpios[nombre_limpio]['total_monto'] += item['total_monto']
+                ejecutores_limpios[nombre_limpio]['cantidad'] += item['cantidad']
+                ejecutores_limpios[nombre_limpio]['nombres_originales'].append(nombre)
+            else:
+                # Si no existe, crear nuevo
+                ejecutores_limpios[nombre_limpio] = {
+                    'total_monto': item['total_monto'],
+                    'cantidad': item['cantidad'],
+                    'nombres_originales': [nombre]
+                }
     
-    for suministro in suministros:
-        fecha = suministro.fecha_ejecucion
-        mes_key = fecha.strftime('%Y-%m')
-        suministros_por_mes[mes_key].append(suministro)
-    
-    # 4. PROCESAR CADA MES
-    datos_meses = []
-    meses_espanol = {
-        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
-        5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
-        9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
-    }
-    
-    for mes_key in sorted(suministros_por_mes.keys(), reverse=True):
-        año, mes = map(int, mes_key.split('-'))
-        suministros_mes = suministros_por_mes[mes_key]
-        
-        # Calcular semanas del mes (simplificado)
-        primer_dia = datetime(año, mes, 1).date()
-        if mes == 12:
-            ultimo_dia = datetime(año + 1, 1, 1).date() - timedelta(days=1)
-        else:
-            ultimo_dia = datetime(año, mes + 1, 1).date() - timedelta(days=1)
-        
-        # Crear semanas (semanas naturales del 1 al 31)
-        semanas = []
-        semana_actual = 1
-        dia_actual = 1
-        
-        while dia_actual <= ultimo_dia.day:
-            inicio_semana = dia_actual
-            fin_semana = min(dia_actual + 6, ultimo_dia.day)
-            
-            # Solo mostrar semanas que tengan datos
-            semanas.append({
-                'numero': semana_actual,
-                'inicio': inicio_semana,
-                'fin': fin_semana,
-                'label': f"{inicio_semana:02d}/{mes:02d} - {fin_semana:02d}/{mes:02d}"
-            })
-            
-            semana_actual += 1
-            dia_actual = fin_semana + 1
-        
-        # Inicializar estructura de datos para este mes
-        matriz_data = defaultdict(lambda: defaultdict(Decimal))
-        
-        # Procesar cada suministro
-        for suministro in suministros_mes:
-            fecha = suministro.fecha_ejecucion
-            dia = fecha.day
-            ejecutor_limpio = ' '.join(str(suministro.ejecutado_por).strip().split()).upper()
-            monto = suministro.monto
-            
-            # Determinar en qué semana está el día
-            semana_idx = -1
-            for idx, semana in enumerate(semanas):
-                if semana['inicio'] <= dia <= semana['fin']:
-                    semana_idx = idx
-                    break
-            
-            if semana_idx >= 0:
-                matriz_data[semana_idx][ejecutor_limpio] += monto
-        
-        # Crear matriz para la tabla
-        matriz_mes = []
-        total_mes = Decimal('0.00')
-        
-        for semana_idx, semana in enumerate(semanas):
-            fila = {
-                'semana': semana['label'],
-                'montos': [],
-                'total_semana': Decimal('0.00')
-            }
-            
-            # Montos por ejecutor para esta semana
-            for ejecutor in ejecutores:
-                monto = matriz_data[semana_idx].get(ejecutor, Decimal('0.00'))
-                fila['montos'].append(monto)
-                fila['total_semana'] += monto
-            
-            matriz_mes.append(fila)
-            total_mes += fila['total_semana']
-        
-        # Calcular totales por ejecutor para este mes
-        totales_ejecutores_mes = []
-        for ejecutor in ejecutores:
-            total_ejecutor = Decimal('0.00')
-            for semana_idx in range(len(semanas)):
-                total_ejecutor += matriz_data[semana_idx].get(ejecutor, Decimal('0.00'))
-            totales_ejecutores_mes.append(total_ejecutor)
-        
-        # Verificar consistencia
-        total_calculado = sum(totales_ejecutores_mes)
-        if total_calculado != total_mes:
-            print(f"ADVERTENCIA: Total mes ({total_mes}) != suma ejecutores ({total_calculado}) para {mes_key}")
-        
-        # Agregar datos del mes
-        datos_meses.append({
-            'mes_key': mes_key,
-            'mes_nombre': f"{meses_espanol.get(mes, mes)} {año}",
-            'semanas': semanas,
-            'matriz': matriz_mes,
-            'totales_ejecutores': totales_ejecutores_mes,
-            'total_mes': total_mes
+    # Convertir a lista ordenada
+    ejecutores_final = []
+    for nombre_limpio, datos in sorted(ejecutores_limpios.items()):
+        ejecutores_final.append({
+            'ejecutor': nombre_limpio,
+            'total_monto': datos['total_monto'],
+            'cantidad': datos['cantidad'],
+            'nombres_originales': datos['nombres_originales']
         })
     
-    # 5. CALCULAR TOTALES GENERALES
-    totales_generales_ejecutores = []
-    total_general = Decimal('0.00')
-    
-    # Calcular desde los datos originales para mayor precisión
-    for ejecutor in ejecutores:
-        # Buscar todos los suministros de este ejecutor (case-insensitive)
-        total_ejecutor = Decimal('0.00')
-        for suministro in suministros:
-            ejecutor_actual = ' '.join(str(suministro.ejecutado_por).strip().split()).upper()
-            if ejecutor_actual == ejecutor:
-                total_ejecutor += suministro.monto
-        
-        totales_generales_ejecutores.append(total_ejecutor)
-        total_general += total_ejecutor
-    
-    # 6. VERIFICACIÓN FINAL
-    print(f"Total general calculado: {total_general}")
-    print(f"Totales por ejecutor: {totales_generales_ejecutores}")
-    
-    # 7. CALCULAR MANUALMENTE PARA VERIFICAR
-    total_manual = sum(s.monto for s in suministros)
-    print(f"Total manual (suma directa): {total_manual}")
+    # Calcular total general
+    total_general = sum(e['total_monto'] for e in ejecutores_final)
     
     context = {
-        'ejecutores': ejecutores,
-        'datos_meses': datos_meses,
-        'totales_generales_ejecutores': totales_generales_ejecutores,
+        'ejecutores': ejecutores_final,
         'total_general': total_general,
-        'total_verificacion': total_manual,  # Para debug
+        'total_ejecutores': len(ejecutores_final),
     }
     
     return render(request, 'gestion/reporte_productividad.html', context)
