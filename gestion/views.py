@@ -1081,6 +1081,7 @@ from collections import defaultdict
 from .models import Suministro, EstadoSuministro, Distrito
 
 
+@login_required
 def reporte_productividad(request):
     vista = request.GET.get('vista', 'semanal')
     mes_seleccionado = request.GET.get('mes', datetime.now().strftime('%Y-%m'))
