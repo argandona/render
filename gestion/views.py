@@ -1146,10 +1146,12 @@ def reporte_productividad(request):
     """
     # Filtrar solo suministros ejecutados
     suministros = Suministro.objects.exclude(
-        ejecutado_por__isnull=True
-    ).exclude(
-        ejecutado_por=''
-    ).order_by('fecha_ejecucion', 'ejecutado_por')
+    ejecutado_por__isnull=True
+).exclude(
+    ejecutado_por=''
+).exclude(
+    fecha_ejecucion__isnull=True  # <-- Esta línea evita filas con fecha vacía
+).order_by('fecha_ejecucion', 'ejecutado_por')
 
     # Diccionario para agrupar datos
     reporte = defaultdict(lambda: defaultdict(lambda: Decimal('0.00')))
