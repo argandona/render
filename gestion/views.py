@@ -1078,163 +1078,107 @@ def dashboard(request):
 # sst_app/views.py
 
 
+
 from datetime import datetime, timedelta
-from decimal import Decimal
 from django.shortcuts import render
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Sum
 from gestion.models import Suministro
+from collections import defaultdict
 
 def reporte_productividad(request):
     """
-    Vista para el reporte de productividad por ejecutor
-    Muestra matriz de ejecutores vs semanas/meses
+    Reporte simplificado: Fechas (filas) x Ejecutores (columnas) = Montos
     """
-
-    # --- Parámetros de filtro ---
-    vista = request.GET.get('vista', 'semanal')  # 'semanal' o 'mensual'
-    mes_seleccionado = request.GET.get('mes')    # ejemplo: '2026-01'
-    search = request.GET.get('search', '')
-
-    # Fecha actual
-    hoy = timezone.now().date()
-
-    # --- Obtener suministros filtrados ---
-    suministros = Suministro.objects.all()
     
-    # ✅ FILTRO POR MES SELECCIONADO
-    if mes_seleccionado:
-        año, mes = map(int, mes_seleccionado.split('-'))
-        # Filtrar por fecha_ejecucion O fecha_programada del mes seleccionado
-        suministros = suministros.filter(
-            Q(fecha_ejecucion__year=año, fecha_ejecucion__month=mes) |
-            Q(fecha_programada__year=año, fecha_programada__month=mes, fecha_ejecucion__isnull=True)
-        )
+    # Parámetros
+    mes_seleccionado = request.GET.get('mes', timezone.now().strftime('%Y-%m'))
+    año, mes = map(int, mes_seleccionado.split('-'))
     
-    # Filtro por búsqueda de ejecutor
-    if search:
-        suministros = suministros.filter(ejecutado_por__icontains=search)
-
-    # --- Preparar semanas si vista semanal ---
+    # Calcular rango del mes
+    primer_dia = datetime(año, mes, 1).date()
+    if mes == 12:
+        ultimo_dia = datetime(año + 1, 1, 1).date() - timedelta(days=1)
+    else:
+        ultimo_dia = datetime(año, mes + 1, 1).date() - timedelta(days=1)
+    
+    # Obtener suministros del mes
+    suministros = Suministro.objects.filter(
+        fecha_ejecucion__gte=primer_dia,
+        fecha_ejecucion__lte=ultimo_dia,
+        ejecutado_por__isnull=False
+    ).exclude(ejecutado_por='')
+    
+    # Obtener lista única de ejecutores
+    ejecutores = sorted(list(suministros.values_list('ejecutado_por', flat=True).distinct()))
+    
+    # Generar semanas del mes
     semanas = []
-    if vista == 'semanal' and mes_seleccionado:
-        año, mes = map(int, mes_seleccionado.split('-'))
-        primer_dia = datetime(año, mes, 1).date()
-        
-        # Calcular último día del mes correctamente
-        if mes == 12:
-            ultimo_dia = datetime(año + 1, 1, 1).date() - timedelta(days=1)
-        else:
-            ultimo_dia = datetime(año, mes + 1, 1).date() - timedelta(days=1)
-
-        dia_actual = primer_dia
-        while dia_actual <= ultimo_dia:
-            semana_inicio = dia_actual
-            semana_fin = min(dia_actual + timedelta(days=6), ultimo_dia)
-            semanas.append({'inicio': semana_inicio, 'fin': semana_fin})
-            dia_actual = semana_fin + timedelta(days=1)
-    
-    # DEBUG: Agregar print para verificar
-    print(f"DEBUG - Vista: {vista}, Mes: {mes_seleccionado}, Semanas generadas: {len(semanas)}")
-
-    # --- Preparar periodos para template ---
-    periodos = []
-    for s in semanas:
-        periodos.append({
-            'label': f"{s['inicio'].strftime('%d/%m')} - {s['fin'].strftime('%d/%m')}",
-            'rango': f"{s['inicio'].strftime('%d/%m')} - {s['fin'].strftime('%d/%m')}",
-            'dia_semana': s['inicio'].strftime('%A'),
-            'es_actual': s['inicio'] <= hoy <= s['fin'],
-            'es_hoy': s['inicio'] <= hoy <= s['fin'],
+    dia_actual = primer_dia
+    while dia_actual <= ultimo_dia:
+        semana_inicio = dia_actual
+        semana_fin = min(dia_actual + timedelta(days=6), ultimo_dia)
+        semanas.append({
+            'inicio': semana_inicio,
+            'fin': semana_fin,
+            'label': f"{semana_inicio.strftime('%d/%m')} - {semana_fin.strftime('%d/%m')}"
         })
-
-    # --- Inicializar datos de ejecutores ---
-    ejecutores = suministros.values_list('ejecutado_por', flat=True).distinct()
-    ejecutores_data = {e.strip(): [0] * len(semanas) for e in ejecutores if e}
-
-    # --- Llenar montos por semana ---
-    for suma in suministros:
-        if not suma.ejecutado_por:
-            continue
-        nombre = suma.ejecutado_por.strip()
-
-        # Fecha a usar (priorizar fecha_ejecucion)
-        fecha = suma.fecha_ejecucion or suma.fecha_programada
-        if not fecha:
-            continue
+        dia_actual = semana_fin + timedelta(days=1)
+    
+    # Crear matriz: {(semana_idx, ejecutor): monto}
+    matriz_data = defaultdict(float)
+    
+    for suministro in suministros:
+        fecha = suministro.fecha_ejecucion
+        ejecutor = suministro.ejecutado_por.strip()
+        monto = float(suministro.monto or 0)
         
-        # Convertir a date si es datetime
-        if isinstance(fecha, datetime):
-            fecha_date = fecha.date()
-        else:
-            fecha_date = fecha
-        
-        # Asignar monto a la semana correspondiente
+        # Encontrar en qué semana cae
         for idx, semana in enumerate(semanas):
-            if semana['inicio'] <= fecha_date <= semana['fin'] and fecha_date <= hoy:
-                monto = float(suma.monto or 0)
-                ejecutores_data[nombre][idx] += monto
-
-    # --- Totales por periodo ---
-    totales_por_periodo = [0] * len(semanas)
-    for i in range(len(semanas)):
-        totales_por_periodo[i] = sum(row[i] for row in ejecutores_data.values())
-
-    # --- Totales generales ---
-    total_ejecutores = len(ejecutores_data)
-    total_general = sum(totales_por_periodo)
-    promedio_periodo = (total_general / total_ejecutores) if total_ejecutores else 0
-
-    # --- Top productor ---
-    top_productor = None
-    if ejecutores_data:
-        top_nombre = max(ejecutores_data, key=lambda x: sum(ejecutores_data[x]))
-        top_productor = {
-            'ejecutor': top_nombre,
-            'total': sum(ejecutores_data[top_nombre])
-        }
-
-    # --- Preparar matriz para template ---
+            if semana['inicio'] <= fecha <= semana['fin']:
+                matriz_data[(idx, ejecutor)] += monto
+                break
+    
+    # Preparar matriz para template
     matriz = []
-    for nombre, montos in ejecutores_data.items():
+    for idx, semana in enumerate(semanas):
         fila = {
-            'ejecutor': nombre,
-            'periodos': [{'monto': monto, 'cantidad': 0} for monto in montos],
-            'total': sum(montos)
+            'semana': semana['label'],
+            'montos': []
         }
+        total_fila = 0
+        for ejecutor in ejecutores:
+            monto = matriz_data.get((idx, ejecutor), 0)
+            fila['montos'].append(monto)
+            total_fila += monto
+        fila['total'] = total_fila
         matriz.append(fila)
     
-    # Ordenar matriz por total descendente
-    matriz.sort(key=lambda x: x['total'], reverse=True)
-
-    # --- Preparar meses disponibles para el selector ---
+    # Totales por ejecutor (columnas)
+    totales_ejecutores = []
+    for ejecutor in ejecutores:
+        total = sum(matriz_data.get((idx, ejecutor), 0) for idx in range(len(semanas)))
+        totales_ejecutores.append(total)
+    
+    # Total general
+    total_general = sum(totales_ejecutores)
+    
+    # Preparar meses disponibles
     meses_disponibles = []
-    fecha_actual = hoy
     for i in range(12):
-        mes_fecha = fecha_actual - timedelta(days=30*i)
+        fecha = timezone.now().date() - timedelta(days=30*i)
         meses_disponibles.append({
-            'valor': mes_fecha.strftime('%Y-%m'),
-            'nombre': mes_fecha.strftime('%B %Y')
+            'valor': fecha.strftime('%Y-%m'),
+            'nombre': fecha.strftime('%B %Y')
         })
     
-    # Si no hay mes seleccionado, usar el mes actual
-    if not mes_seleccionado:
-        mes_seleccionado = hoy.strftime('%Y-%m')
-
-    # --- Contexto ---
     context = {
-        'vista': vista,
         'mes_seleccionado': mes_seleccionado,
         'meses_disponibles': meses_disponibles,
-        'semanas': semanas,
-        'periodos': periodos,
+        'ejecutores': ejecutores,
         'matriz': matriz,
-        'totales_por_periodo': totales_por_periodo,
+        'totales_ejecutores': totales_ejecutores,
         'total_general': total_general,
-        'total_ejecutores': total_ejecutores,
-        'promedio_periodo': promedio_periodo,
-        'top_productor': top_productor,
-        'search': search,
     }
-
+    
     return render(request, 'gestion/reporte_productividad.html', context)
