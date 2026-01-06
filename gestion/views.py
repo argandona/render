@@ -1070,7 +1070,6 @@ def dashboard(request):
 
 # sst_app/views.py
 
-
 from django.shortcuts import render
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -1090,83 +1089,117 @@ def reporte_productividad(request):
     # Fecha actual
     hoy = timezone.now().date()
 
-    # --- Filtrar SST ---
-    ssts = SST.objects.all()
-
-    # --- Preparar matriz de semanas ---
-    semanas = []
+    # --- Preparar matriz de semanas o días ---
+    periodos = []
     if vista == 'semanal' and mes_seleccionado:
         año, mes = map(int, mes_seleccionado.split('-'))
         primer_dia = datetime(año, mes, 1).date()
         if mes == 12:
-            ultimo_dia = datetime(año + 1, 1, 1).date() - timedelta(days=1)
+            ultimo_dia = datetime(año+1, 1, 1).date() - timedelta(days=1)
         else:
-            ultimo_dia = datetime(año, mes + 1, 1).date() - timedelta(days=1)
+            ultimo_dia = datetime(año, mes+1, 1).date() - timedelta(days=1)
 
         dia_actual = primer_dia
+        semanas = []
         while dia_actual <= ultimo_dia:
             semana_inicio = dia_actual
             semana_fin = min(dia_actual + timedelta(days=6), ultimo_dia)
-            semanas.append({
-                'inicio': semana_inicio,
-                'fin': semana_fin,
+            semanas.append({'inicio': semana_inicio, 'fin': semana_fin})
+            periodos.append({
+                "label": f"{semana_inicio.strftime('%d/%m')} - {semana_fin.strftime('%d/%m')}",
+                "rango": f"{semana_inicio.strftime('%d/%m')} - {semana_fin.strftime('%d/%m')}",
+                "es_actual": semana_inicio <= hoy <= semana_fin,
+                "es_hoy": False,
             })
             dia_actual = semana_fin + timedelta(days=1)
+    else:
+        # Vista mensual (diaria)
+        if mes_seleccionado:
+            año, mes = map(int, mes_seleccionado.split('-'))
+            primer_dia = datetime(año, mes, 1).date()
+            if mes == 12:
+                ultimo_dia = datetime(año+1, 1, 1).date() - timedelta(days=1)
+            else:
+                ultimo_dia = datetime(año, mes+1, 1).date() - timedelta(days=1)
+
+            dia_actual = primer_dia
+            semanas = []  # en este caso, cada día es un "periodo"
+            while dia_actual <= ultimo_dia:
+                semanas.append({'inicio': dia_actual, 'fin': dia_actual})
+                periodos.append({
+                    "label": dia_actual.strftime('%d/%m'),
+                    "dia_semana": dia_actual.strftime('%a'),
+                    "es_actual": dia_actual == hoy,
+                    "es_hoy": dia_actual == hoy,
+                })
+                dia_actual += timedelta(days=1)
+
+    # --- Filtrar suministros ---
+    suministros = Suministro.objects.all()
+
+    # Filtro por búsqueda de ejecutor
+    if search:
+        suministros = suministros.filter(ejecutado_por__icontains=search)
 
     # --- Inicializar datos de ejecutores ---
     ejecutores_data = {}
+    for suma in suministros:
+        if not suma.ejecutado_por:
+            continue
+        nombre = suma.ejecutado_por.strip()
+        if nombre not in ejecutores_data:
+            ejecutores_data[nombre] = [0] * len(semanas)
 
-    for sst in ssts:
-        for suministro in sst.suministros.all():
-            # Saltar si no hay ejecutor o fecha de ejecución
-            if not suministro.ejecutado_por or not suministro.fecha_ejecucion:
-                continue
+        # Convertir fecha a date
+        fecha = suma.fecha_ejecucion or suma.fecha_programada
+        if not fecha:
+            continue
+        fecha_date = fecha if isinstance(fecha, datetime) else fecha
 
-            nombre = suministro.ejecutado_por.strip()
+        # Encontrar el índice del periodo donde cae la fecha
+        for idx, semana in enumerate(semanas):
+            if semana['inicio'] <= fecha_date <= semana['fin'] and fecha_date <= hoy:
+                ejecutores_data[nombre][idx] += float(suma.monto or 0)
 
-            if search and search.lower() not in nombre.lower():
-                continue
-
-            if nombre not in ejecutores_data:
-                ejecutores_data[nombre] = [0] * len(semanas)
-
-            # fecha_ejecucion ya es DateField, pero por seguridad aseguramos date
-            fecha_ejec = suministro.fecha_ejecucion
-            if isinstance(fecha_ejec, datetime):
-                fecha_ejec = fecha_ejec.date()
-
-            # Contar monto solo si fecha está dentro de la semana y no es futura
-            for idx, semana in enumerate(semanas):
-                if semana['inicio'] <= fecha_ejec <= semana['fin'] and fecha_ejec <= hoy:
-                    ejecutores_data[nombre][idx] += suministro.monto
-
-    # --- Totales ---
-    total_por_periodo = [0] * len(semanas)
-    for i in range(len(semanas)):
-        total_por_periodo[i] = sum(row[i] for row in ejecutores_data.values())
-
-    total_ejecutores = len(ejecutores_data)
-    produccion_total = sum(total_por_periodo)
-    promedio_por_periodo = (produccion_total / total_ejecutores) if total_ejecutores else 0
-
-    # Identificar top productor
-    top_productor = None
-    if ejecutores_data:
-        top_nombre = max(ejecutores_data, key=lambda x: sum(ejecutores_data[x]))
-        top_productor = {
-            'nombre': top_nombre,
-            'total': sum(ejecutores_data[top_nombre])
+    # --- Construir matriz para template ---
+    matriz = []
+    for nombre, montos in ejecutores_data.items():
+        fila = {
+            "ejecutor": nombre,
+            "periodos": [],
+            "total": sum(montos),
         }
+        for monto in montos:
+            fila["periodos"].append({
+                "monto": monto,
+                "cantidad": 1 if monto > 0 else 0  # cantidad de suministros > 0
+            })
+        matriz.append(fila)
+
+    # --- Totales por periodo ---
+    totales_por_periodo = [0] * len(semanas)
+    for i in range(len(semanas)):
+        totales_por_periodo[i] = sum(fila["periodos"][i]["monto"] for fila in matriz)
+
+    total_general = sum(totales_por_periodo)
+    total_ejecutores = len(ejecutores_data)
+    promedio_periodo = total_general / total_ejecutores if total_ejecutores else 0
+
+    # --- Top productor ---
+    top_productor = None
+    if matriz:
+        top_fila = max(matriz, key=lambda x: x["total"])
+        top_productor = {"ejecutor": top_fila["ejecutor"], "total": top_fila["total"]}
 
     context = {
         'vista': vista,
         'mes_seleccionado': mes_seleccionado,
-        'semanas': semanas,
-        'ejecutores_data': ejecutores_data,
-        'total_por_periodo': total_por_periodo,
+        'periodos': periodos,
+        'matriz': matriz,
+        'totales_por_periodo': totales_por_periodo,
+        'total_general': total_general,
         'total_ejecutores': total_ejecutores,
-        'produccion_total': produccion_total,
-        'promedio_por_periodo': promedio_por_periodo,
+        'promedio_periodo': promedio_periodo,
         'top_productor': top_productor,
         'search': search,
     }
