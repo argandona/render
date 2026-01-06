@@ -1127,6 +1127,10 @@ from collections import defaultdict
 from decimal import Decimal
 from datetime import datetime
 
+
+from collections import defaultdict
+from decimal import Decimal
+
 def reporte_productividad(request):
     """
     Reporte agrupado por fecha de ejecución y luego por ejecutor,
@@ -1153,21 +1157,23 @@ def reporte_productividad(request):
         reporte_raw[fecha][ejecutor] += monto
         total_general += monto
 
-    # Convertir fechas a formato legible en español
+    # Meses en español
     meses = {
         1: 'enero', 2: 'febrero', 3: 'marzo', 4: 'abril',
         5: 'mayo', 6: 'junio', 7: 'julio', 8: 'agosto',
         9: 'septiembre', 10: 'octubre', 11: 'noviembre', 12: 'diciembre'
     }
     
-    # Ordenar por fecha y formatear - USANDO strftime
+    # Ordenar por fecha y formatear EXPLÍCITAMENTE
     reporte = {}
     for fecha in sorted(reporte_raw.keys()):
-        # Usar strftime para asegurar el formato correcto
-        dia = fecha.strftime('%d')
-        mes = meses[int(fecha.strftime('%m'))]
-        año = fecha.strftime('%Y')
-        fecha_formateada = f"{dia} de {mes} de {año}"
+        # Usar los atributos .day, .month, .year directamente
+        # Esto garantiza que siempre se interprete correctamente
+        dia = fecha.day
+        mes = meses[fecha.month]
+        año = fecha.year
+        
+        fecha_formateada = f"{dia:02d} de {mes} de {año}"
         reporte[fecha_formateada] = dict(reporte_raw[fecha])
 
     context = {
