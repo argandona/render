@@ -430,7 +430,7 @@
             '{{ suministro.fecha_ejecucion|date:"Y-m-d"|default:"" }}',
             '{{ suministro.ejecutado_por|default:"" }}',
             '{{ suministro.observacion_contratista|default:"" }}',
-            '{{ suministro.monto|default:"0.00" }}'
+            {{ suministro.monto|default:0|floatformat:2 }}
         )" class="text-green-600 hover:text-green-900 mr-3 hover:underline">
             Editar
         </button>
@@ -584,7 +584,7 @@
     '{{ suministro.fecha_ejecucion|date:"Y-m-d"|default:"" }}',
     '{{ suministro.ejecutado_por|default:"" }}',
     '{{ suministro.observacion_contratista|default:"" }}',
-    '{{ suministro.monto|default:"0.00" }}'  <!-- ✅ AGREGAR MONTO -->
+    {{ suministro.monto|default:0|floatformat:2 }} <!-- ✅ AGREGAR MONTO -->
 )" class="text-sm text-green-600 hover:text-green-900 px-3 py-1 border border-green-200 rounded hover:bg-green-50 transition-colors duration-200">
     Editar
 </button>
