@@ -358,101 +358,97 @@
     <!-- Vista de tabla (para escritorio) -->
     <div id="tableView" class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200 hidden md:table">
+            
             <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SST</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Suministro</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Medidor</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto (S/)</th> <!-- ✅ NUEVO --> 
-                     
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fase</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dirección</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distrito</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Ejec.</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ejecutado Por</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                </tr>
-            </thead>
+    <tr>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SST</th>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Suministro</th>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Medidor</th>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto (S/)</th>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fase</th>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distrito</th>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Ejec.</th>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ejecutado Por</th>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+    </tr>
+</thead>
+
             <tbody class="bg-white divide-y divide-gray-200">
                 {% for suministro in suministros %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.item }}</td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm">
-                        <span class="text-blue-600 font-medium">{{ suministro.sst.sst }}</span>
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                        <div class="flex items-center">
-                            {{ suministro.suministro }}
-                            {% if suministro.tipo_suministro == 'ADICIONAL' %}
-                                <span class="ml-2 px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
-                                    ADIC
-                                </span>
-                            {% endif %}
-                        </div>
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {% if suministro.tipo_suministro == 'ADICIONAL' %}
-                            <span class="text-yellow-600">Adicional</span>
-                        {% else %}
-                            <span class="text-blue-600">Original</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.medidor|default:"-" }}</td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            {% if suministro.estado_suministro.estado_suministro == 'Ejecutado' %}bg-green-100 text-green-800
-                            {% elif suministro.estado_suministro.estado_suministro == 'Pendiente' %}bg-yellow-100 text-yellow-800
-                            {% else %}bg-gray-100 text-gray-800{% endif %}">
-                            {{ suministro.estado_suministro.estado_suministro }}
-                        </span>
-                    </td>
 
-                    <!-- ✅ NUEVA CELDA: MONTO -->
-        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-            <span class="font-medium text-green-600">
-                S/ {{ suministro.monto|default:"0.00"|floatformat:2 }}
-            </span>
-        </td>
+<tr class="hover:bg-gray-50">
+    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.item }}</td>
+    <td class="px-4 py-3 whitespace-nowrap text-sm">
+        <span class="text-blue-600 font-medium">{{ suministro.sst.sst }}</span>
+    </td>
+    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+        <div class="flex items-center">
+            {{ suministro.suministro }}
+            {% if suministro.tipo_suministro == 'ADICIONAL' %}
+                <span class="ml-2 px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                    ADIC
+                </span>
+            {% endif %}
+        </div>
+    </td>
+    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+        {% if suministro.tipo_suministro == 'ADICIONAL' %}
+            <span class="text-yellow-600">Adicional</span>
+        {% else %}
+            <span class="text-blue-600">Original</span>
+        {% endif %}
+    </td>
+    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.medidor|default:"-" }}</td>
+    <td class="px-4 py-3 whitespace-nowrap">
+        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+            {% if suministro.estado_suministro.estado_suministro == 'Ejecutado' %}bg-green-100 text-green-800
+            {% elif suministro.estado_suministro.estado_suministro == 'Pendiente' %}bg-yellow-100 text-yellow-800
+            {% else %}bg-gray-100 text-gray-800{% endif %}">
+            {{ suministro.estado_suministro.estado_suministro }}
+        </span>
+    </td>
+    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+        <span class="font-medium text-green-600">
+            S/ {{ suministro.monto|default:"0.00"|floatformat:2 }}
+        </span>
+    </td>
+    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.fase|default:"-" }}</td>
+    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.distrito.nombre_distrito }}</td>
+    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+        {{ suministro.fecha_ejecucion|date:"d/m/Y"|default:"-" }}
+    </td>
+    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.ejecutado_por|default:"-" }}</td>
+    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">
+        <button onclick="abrirModalEditar(
+            {{ suministro.id }}, 
+            '{{ suministro.sst.sst }}', 
+            '{{ suministro.suministro }}', 
+            {{ suministro.estado_suministro.id }},
+            '{{ suministro.fecha_ejecucion|date:"Y-m-d"|default:"" }}',
+            '{{ suministro.ejecutado_por|default:"" }}',
+            '{{ suministro.observacion_contratista|default:"" }}',
+            '{{ suministro.monto|default:"0.00" }}'
+        )" class="text-green-600 hover:text-green-900 mr-3 hover:underline">
+            Editar
+        </button>
+        <button onclick="verDetalle({{ suministro.id }})" class="text-blue-600 hover:text-blue-900 mr-3 hover:underline">
+            Ver
+        </button>
+        <button onclick="eliminarSuministro({{ suministro.id }}, '{{ suministro.suministro|escapejs }}')" class="text-red-600 hover:text-red-900 hover:underline">
+            Eliminar
+        </button>
+    </td>
+</tr>
 
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.fase|default:"-" }}</td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.contacto|default:"-" }}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900 max-w-xs truncate" title="{{ suministro.direccion }}">
-                        {{ suministro.direccion|truncatechars:30 }}
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.distrito.nombre_distrito }}</td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {{ suministro.fecha_ejecucion|date:"d/m/Y"|default:"-" }}
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ suministro.ejecutado_por|default:"-" }}</td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">
-    <button onclick="abrirModalEditar(
-        {{ suministro.id }}, 
-        '{{ suministro.sst.sst }}', 
-        '{{ suministro.suministro }}', 
-        {{ suministro.estado_suministro.id }},
-        '{{ suministro.fecha_ejecucion|date:"Y-m-d"|default:"" }}',
-        '{{ suministro.ejecutado_por|default:"" }}',
-        '{{ suministro.observacion_contratista|default:"" }}',
-        '{{ suministro.monto|default:"0.00" }}'  <!-- ✅ AGREGAR MONTO -->
 
-    )" class="text-green-600 hover:text-green-900 mr-3 hover:underline">
-        Editar
-    </button>
-    <button onclick="verDetalle({{ suministro.id }})" class="text-blue-600 hover:text-blue-900 mr-3 hover:underline">
-        Ver
-    </button>
-    <button onclick="eliminarSuministro({{ suministro.id }}, '{{ suministro.suministro|escapejs }}')" class="text-red-600 hover:text-red-900 hover:underline">
-        Eliminar
-    </button>
-</td>
-                </tr>
+
+
                 {% empty %}
                 <tr>
-                    <td colspan="13" class="px-6 py-8 text-center text-gray-500">
+                    <td colspan="12" class="px-6 py-8 text-center text-gray-500">
                         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
