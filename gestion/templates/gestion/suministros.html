@@ -300,8 +300,8 @@
     </label>
     <div class="relative">
         <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">S/</span>
-        <input type="number" id="edit_monto" step="0.01" min="0"
-               placeholder="0.00"
+        <input type="number" id="edit_monto" name="monto" step="0.01" min="0"
+               placeholder="0.00" value="0.00"
                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
     </div>
 </div>
@@ -849,7 +849,12 @@ window.addEventListener('load', checkScreenSize);
 window.addEventListener('resize', checkScreenSize);
 
 // Funciones para modales existentes
-function abrirModalEditar(suministroId, sst, suministro, estadoId, fechaEjecucion, ejecutadoPor, observacion,monto) {
+function abrirModalEditar(suministroId, sst, suministro, estadoId, fechaEjecucion, ejecutadoPor, observacion, monto) {
+    // Logs para depuración
+    console.log('=== ABRIR MODAL EDITAR ===');
+    console.log('Monto recibido:', monto, 'Tipo:', typeof monto);
+    
+    // Asignar valores
     document.getElementById('edit_suministro_id').value = suministroId;
     document.getElementById('edit_sst').value = sst;
     document.getElementById('edit_suministro').value = suministro;
@@ -857,7 +862,15 @@ function abrirModalEditar(suministroId, sst, suministro, estadoId, fechaEjecucio
     document.getElementById('edit_fecha_ejecucion').value = fechaEjecucion || '';
     document.getElementById('edit_ejecutado_por').value = ejecutadoPor || '';
     document.getElementById('edit_observacion').value = observacion || '';
-    document.getElementById('edit_monto').value = monto || '0.00';    
+    
+    // Asignar monto con validación
+    const montoInput = document.getElementById('edit_monto');
+    const montoValor = monto ? parseFloat(monto) : 0;
+    montoInput.value = montoValor.toFixed(2);
+    
+    console.log('Monto asignado al input:', montoInput.value);
+    
+    // Mostrar modal
     document.getElementById('editModal').classList.remove('hidden');
 }
 
