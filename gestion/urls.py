@@ -13,6 +13,13 @@ urlpatterns = [
     path('sst/buscar/', views.buscar_sst, name='buscar_sst'),
     path('suministros/descargar-excel/', views.descargar_excel_suministros, name='descargar_excel_suministros'),
     path('reportes/productividad/', views.reporte_productividad, name='reporte_productividad'),
+    path('suministros/importar-excel/', 
+         views.importar_excel_suministros, 
+         name='importar_excel_suministros'),
+    
+    path('suministros/plantilla-importacion/', 
+         views.descargar_plantilla_importacion, 
+         name='descargar_plantilla_importacion'),
 
     #path('dashboard/', views.dashboard, name='dashboard'),
     #path('', views.dashboard, name='dashboard_home'), 

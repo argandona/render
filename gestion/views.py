@@ -1145,7 +1145,7 @@ def reporte_productividad(request):
     suministros = Suministro.objects.filter(
         ejecutado_por__isnull=False,
         fecha_ejecucion__isnull=False,
-        estado_suministro__estado_suministro__in=['EJECUTADO', 'DEVUELTO']
+        estado_suministro__estado_suministro__in=['EJECUTADO', 'DEVUELTO','ADMISIBLE']
     ).exclude(ejecutado_por='')
     
     # Aplicar filtros de fecha si existen
@@ -1221,3 +1221,378 @@ def reporte_productividad(request):
     }
 
     return render(request, 'gestion/reporte_productividad.html', context)
+
+
+
+
+
+
+
+
+
+
+from django.http import HttpResponse
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from datetime import date
+
+@login_required
+def descargar_plantilla_importacion(request):
+    """
+    Genera una plantilla Excel con ejemplos para importar suministros
+    """
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Plantilla Importación"
+    
+    # Estilos
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=12)
+    example_fill = PatternFill(start_color="E7E6E6", end_color="E7E6E6", fill_type="solid")
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # Headers
+    headers = ['SST', 'Suministro', 'Estado', 'Monto', 'Ejecutado por', 'Fecha de ejecucion']
+    ws.append(headers)
+    
+    # Aplicar estilos a headers
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    # Ejemplos de datos
+    ejemplos = [
+        ['SST-001', 'SST-001-001', 'Ejecutado', '150.00', 'Juan Pérez', '15/01/2026'],
+        ['SST-001', 'SST-001-002', 'Ejecutado', '200.50', 'María García', '16/01/2026'],
+        ['SST-002', 'SST-002-001', 'Pendiente', '', '', ''],
+        ['SST-002', 'SST-002-AD001', 'Asignado', '180.00', 'Carlos López', '17/01/2026'],
+    ]
+    
+    for row_num, row_data in enumerate(ejemplos, 2):
+        ws.append(row_data)
+        for col_num in range(1, len(headers) + 1):
+            cell = ws.cell(row=row_num, column=col_num)
+            cell.fill = example_fill
+            cell.border = border
+            cell.alignment = Alignment(horizontal='left', vertical='center')
+    
+    # Ajustar anchos de columna
+    column_widths = [15, 20, 15, 12, 20, 18]
+    for col_num, width in enumerate(column_widths, 1):
+        ws.column_dimensions[ws.cell(row=1, column=col_num).column_letter].width = width
+    
+    # Agregar hoja de instrucciones
+    ws_instrucciones = wb.create_sheet("Instrucciones")
+    
+    instrucciones = [
+        ["INSTRUCCIONES PARA IMPORTAR SUMINISTROS", ""],
+        ["", ""],
+        ["Columnas Obligatorias:", ""],
+        ["✓ SST", "Código de la SST (debe existir en el sistema)"],
+        ["✓ Suministro", "Número de suministro (debe existir en el sistema)"],
+        ["✓ Estado", "Estado del suministro (Ejecutado, Pendiente, Asignado, etc.)"],
+        ["", ""],
+        ["Columnas Opcionales:", ""],
+        ["○ Monto", "Monto en soles (número con hasta 2 decimales)"],
+        ["○ Ejecutado por", "Nombre del técnico que ejecutó el trabajo"],
+        ["○ Fecha de ejecucion", "Formato: DD/MM/YYYY"],
+        ["", ""],
+        ["NOTAS IMPORTANTES:", ""],
+        ["1.", "Los suministros DEBEN existir previamente en el sistema"],
+        ["2.", "Solo se actualizarán los campos incluidos en el Excel"],
+        ["3.", "Los campos vacíos NO modificarán los datos existentes"],
+        ["4.", "El monto debe ser un número positivo"],
+        ["5.", "La fecha debe estar en formato DD/MM/YYYY"],
+        ["6.", "El estado debe coincidir exactamente con los estados del sistema"],
+        ["", ""],
+        ["Estados válidos:", "Consultar en el sistema los estados disponibles"],
+    ]
+    
+    for row_num, (col1, col2) in enumerate(instrucciones, 1):
+        ws_instrucciones.cell(row=row_num, column=1, value=col1)
+        ws_instrucciones.cell(row=row_num, column=2, value=col2)
+        
+        # Estilo para títulos
+        if row_num == 1:
+            ws_instrucciones.cell(row=row_num, column=1).font = Font(bold=True, size=14, color="4472C4")
+        elif col1 in ["Columnas Obligatorias:", "Columnas Opcionales:", "NOTAS IMPORTANTES:", "Estados válidos:"]:
+            ws_instrucciones.cell(row=row_num, column=1).font = Font(bold=True, size=11)
+    
+    ws_instrucciones.column_dimensions['A'].width = 25
+    ws_instrucciones.column_dimensions['B'].width = 60
+    
+    # Preparar respuesta
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename=plantilla_importacion_suministros_{date.today()}.xlsx'
+    
+    wb.save(response)
+    return response
+
+
+
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.shortcuts import render
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from openpyxl import load_workbook
+from datetime import datetime
+from decimal import Decimal, InvalidOperation
+import traceback
+from .models import Suministro, SST, EstadoSuministro
+
+@login_required
+@require_http_methods(["POST"])
+def importar_excel_suministros(request):
+    """
+    Vista para importar y actualizar suministros desde un archivo Excel
+    
+    Columnas esperadas:
+    - SST: Código de la SST
+    - Suministro: Número de suministro
+    - Estado: Estado del suministro
+    - Monto: Monto en soles (opcional)
+    - Ejecutado por: Nombre del ejecutor (opcional)
+    - Fecha de ejecucion: Fecha en formato DD/MM/YYYY (opcional)
+    """
+    
+    if 'archivo' not in request.FILES:
+        return JsonResponse({
+            'success': False,
+            'message': 'No se ha seleccionado ningún archivo'
+        })
+    
+    archivo = request.FILES['archivo']
+    
+    # Validar extensión del archivo
+    if not archivo.name.endswith(('.xlsx', '.xls')):
+        return JsonResponse({
+            'success': False,
+            'message': 'El archivo debe ser un Excel (.xlsx o .xls)'
+        })
+    
+    try:
+        # Cargar el archivo Excel
+        wb = load_workbook(archivo, data_only=True)
+        ws = wb.active
+        
+        # Validar que tenga al menos las columnas mínimas
+        headers = [cell.value for cell in ws[1]]
+        required_columns = ['SST', 'Suministro', 'Estado']
+        
+        # Normalizar headers (eliminar espacios y convertir a minúsculas)
+        headers_normalized = {h.strip().lower(): idx for idx, h in enumerate(headers) if h}
+        
+        # Verificar columnas requeridas
+        missing_columns = []
+        for col in required_columns:
+            if col.lower() not in headers_normalized:
+                missing_columns.append(col)
+        
+        if missing_columns:
+            return JsonResponse({
+                'success': False,
+                'message': f'Faltan columnas requeridas: {", ".join(missing_columns)}'
+            })
+        
+        # Índices de columnas (base 0)
+        col_sst = headers_normalized.get('sst')
+        col_suministro = headers_normalized.get('suministro')
+        col_estado = headers_normalized.get('estado')
+        col_monto = headers_normalized.get('monto')
+        col_ejecutado_por = headers_normalized.get('ejecutado por') or headers_normalized.get('ejecutado_por')
+        col_fecha = headers_normalized.get('fecha de ejecucion') or headers_normalized.get('fecha_ejecucion') or headers_normalized.get('fecha de ejecución')
+        
+        # Contadores para el reporte
+        actualizados = 0
+        errores = []
+        filas_procesadas = 0
+        ssts_afectadas = set()  # ✅ Para actualizar SST solo una vez al final
+        
+        # ✅ USAR TRANSACCIÓN para asegurar atomicidad
+        with transaction.atomic():
+            # Procesar cada fila (saltando el encabezado)
+            for row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+                try:
+                    # Saltar filas vacías
+                    if not any(row):
+                        continue
+                    
+                    filas_procesadas += 1
+                    
+                    # Extraer valores
+                    sst_code = str(row[col_sst]).strip() if row[col_sst] else None
+                    suministro_code = str(row[col_suministro]).strip() if row[col_suministro] else None
+                    estado_nombre = str(row[col_estado]).strip() if row[col_estado] else None
+                    
+                    # Validaciones básicas
+                    if not sst_code or not suministro_code or not estado_nombre:
+                        errores.append({
+                            'fila': row_num,
+                            'error': 'SST, Suministro y Estado son obligatorios'
+                        })
+                        continue
+                    
+                    # Buscar la SST
+                    try:
+                        sst = SST.objects.get(sst=sst_code)
+                        ssts_afectadas.add(sst.id)  # ✅ Registrar SST afectada
+                    except SST.DoesNotExist:
+                        errores.append({
+                            'fila': row_num,
+                            'sst': sst_code,
+                            'error': f'SST "{sst_code}" no existe en el sistema'
+                        })
+                        continue
+                    
+                    # Buscar el suministro
+                    try:
+                        # ✅ OPTIMIZACIÓN: select_related para evitar consultas extra
+                        suministro = Suministro.objects.select_related('sst', 'estado_suministro').get(
+                            sst=sst,
+                            suministro=suministro_code
+                        )
+                    except Suministro.DoesNotExist:
+                        errores.append({
+                            'fila': row_num,
+                            'sst': sst_code,
+                            'suministro': suministro_code,
+                            'error': f'Suministro "{suministro_code}" no existe en SST "{sst_code}"'
+                        })
+                        continue
+                    
+                    # Buscar el estado
+                    try:
+                        estado = EstadoSuministro.objects.get(
+                            estado_suministro__iexact=estado_nombre
+                        )
+                    except EstadoSuministro.DoesNotExist:
+                        errores.append({
+                            'fila': row_num,
+                            'sst': sst_code,
+                            'suministro': suministro_code,
+                            'error': f'Estado "{estado_nombre}" no existe. Estados válidos: {", ".join(EstadoSuministro.objects.values_list("estado_suministro", flat=True))}'
+                        })
+                        continue
+                    
+                    # Actualizar el suministro
+                    suministro.estado_suministro = estado
+                    
+                    # Procesar monto (opcional)
+                    if col_monto is not None and row[col_monto]:
+                        try:
+                            monto_value = str(row[col_monto]).strip().replace(',', '.')
+                            monto = Decimal(monto_value)
+                            if monto < 0:
+                                errores.append({
+                                    'fila': row_num,
+                                    'sst': sst_code,
+                                    'suministro': suministro_code,
+                                    'error': 'El monto no puede ser negativo',
+                                    'advertencia': True
+                                })
+                            else:
+                                suministro.monto = monto
+                        except (InvalidOperation, ValueError):
+                            errores.append({
+                                'fila': row_num,
+                                'sst': sst_code,
+                                'suministro': suministro_code,
+                                'error': f'Monto inválido: "{row[col_monto]}"',
+                                'advertencia': True
+                            })
+                    
+                    # Procesar ejecutado por (opcional)
+                    if col_ejecutado_por is not None and row[col_ejecutado_por]:
+                        suministro.ejecutado_por = str(row[col_ejecutado_por]).strip()
+                    
+                    # Procesar fecha de ejecución (opcional)
+                    if col_fecha is not None and row[col_fecha]:
+                        fecha_value = row[col_fecha]
+                        try:
+                            if isinstance(fecha_value, datetime):
+                                suministro.fecha_ejecucion = fecha_value.date()
+                            elif isinstance(fecha_value, str):
+                                # Intentar diferentes formatos
+                                for fmt in ['%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y']:
+                                    try:
+                                        suministro.fecha_ejecucion = datetime.strptime(fecha_value.strip(), fmt).date()
+                                        break
+                                    except ValueError:
+                                        continue
+                                else:
+                                    errores.append({
+                                        'fila': row_num,
+                                        'sst': sst_code,
+                                        'suministro': suministro_code,
+                                        'error': f'Fecha inválida: "{fecha_value}". Use formato DD/MM/YYYY',
+                                        'advertencia': True
+                                    })
+                        except Exception as e:
+                            errores.append({
+                                'fila': row_num,
+                                'sst': sst_code,
+                                'suministro': suministro_code,
+                                'error': f'Error procesando fecha: {str(e)}',
+                                'advertencia': True
+                            })
+                    
+                    # ✅ GUARDAR SIN DISPARAR SEÑALES DE SST
+                    # Usamos update_fields para evitar que se ejecute todo el save()
+                    campos_actualizar = ['estado_suministro']
+                    
+                    if col_monto is not None and row[col_monto]:
+                        campos_actualizar.append('monto')
+                    if col_ejecutado_por is not None and row[col_ejecutado_por]:
+                        campos_actualizar.append('ejecutado_por')
+                    if col_fecha is not None and row[col_fecha]:
+                        campos_actualizar.append('fecha_ejecucion')
+                    
+                    suministro.save(update_fields=campos_actualizar)
+                    actualizados += 1
+                    
+                except Exception as e:
+                    errores.append({
+                        'fila': row_num,
+                        'error': f'Error inesperado: {str(e)}'
+                    })
+                    continue
+            
+            # ✅ ACTUALIZAR SST SOLO UNA VEZ AL FINAL
+            # Esto es mucho más eficiente que hacerlo en cada save()
+            for sst_id in ssts_afectadas:
+                try:
+                    sst = SST.objects.get(id=sst_id)
+                    sst.actualizar_monto_total()
+                    sst.actualizar_estado_segun_suministros()
+                except Exception as e:
+                    print(f"⚠️ Error actualizando SST {sst_id}: {e}")
+        
+        # Preparar respuesta
+        mensaje = f'Proceso completado: {actualizados} suministros actualizados de {filas_procesadas} filas procesadas'
+        
+        if errores:
+            mensaje += f'. Se encontraron {len(errores)} errores o advertencias.'
+            
+        messages.success(request, mensaje)
+        return redirect('suministro_list')
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error procesando el archivo: {str(e)}',
+            'traceback': traceback.format_exc()
+        })
