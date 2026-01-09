@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    #map {
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    
+    .map-controls {
+        background: white;
+        padding: 16px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 16px;
+    }
+    
+    .legend {
+        background: white;
+        padding: 12px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        padding: 6px;
+        margin: 4px 0;
+        border-radius: 4px;
+        transition: background 0.2s;
+        cursor: pointer;
+    }
+    
+    .legend-item:hover {
+        background: #f3f4f6;
+    }
+    
+    .legend-color {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        margin-right: 10px;
+        border: 2px solid white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    
+    .legend-text {
+        flex: 1;
+        font-size: 14px;
+    }
+    
+    .legend-count {
+        background: #e5e7eb;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    
+    .info-window {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    
+    .info-window h3 {
+        margin: 0 0 12px 0;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #e5e7eb;
+        color: #1f2937;
+        font-size: 16px;
+    }
+    
+    .info-row {
+        margin: 6px 0;
+        font-size: 13px;
+        line-height: 1.6;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #6b7280;
+    }
+    
+    .info-value {
+        color: #1f2937;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <!-- Columna principal: Mapa -->
+        <div class="lg:col-span-3">
+            <div class="map-controls">
+                <div class="flex justify-between items-center">
+                    <h1 class="text-2xl font-bold text-gray-800">
+                        Mapa de Suministros ASIGNADOS
+                    </h1>
+                    <div class="flex gap-4 items-center">
+                        <div class="text-sm">
+                            <span class="text-gray-600">Total:</span>
+                            <span class="font-bold text-lg text-blue-600">{{ total }}</span>
+                        </div>
+                        <button id="fit-bounds" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm font-medium">
+                            Ver Todos
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="map" class="w-full h-[calc(100vh-200px)]"></div>
+        </div>
+        
+        <!-- Columna lateral: Leyenda -->
+        <div class="lg:col-span-1">
+            <div class="legend sticky top-4">
+                <h3 class="font-bold text-lg mb-3 text-gray-800">SSTs</h3>
+                <div id="legend-content"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const suministros = JSON.parse('{{ suministros|escapejs }}');
+const sstsInfo = JSON.parse('{{ ssts_info|escapejs }}');
+let map;
+let markers = [];
+let markerCluster;
+
+
+
+
+function initMap() {
+    console.log(`Iniciando mapa con ${suministros.length} suministros`);
+    
+    // Centro en Lima, Perú
+    const centro = { lat: -12.0464, lng: -77.0428 };
+
+    map = new google.maps.Map(document.getElementById("map"), {
+        zoom: 12,
+        center: centro,
+        mapTypeId: google.maps.MapTypeId.ROADMAP, // Forzar modo roadmap
+        mapTypeControl: true,
+        mapTypeControlOptions: {
+            style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
+            position: google.maps.ControlPosition.TOP_RIGHT,
+            mapTypeIds: ['roadmap', 'satellite', 'hybrid', 'terrain']
+        },
+        streetViewControl: true,
+        streetViewControlOptions: {
+            position: google.maps.ControlPosition.RIGHT_BOTTOM
+        },
+        fullscreenControl: true,
+        fullscreenControlOptions: {
+            position: google.maps.ControlPosition.RIGHT_TOP
+        },
+        zoomControl: true,
+        zoomControlOptions: {
+            position: google.maps.ControlPosition.RIGHT_CENTER
+        },
+        
+    });
+
+    
+
+    // Crear marcadores CLÁSICOS
+    const bounds = new google.maps.LatLngBounds();
+
+    suministros.forEach(s => {
+        const position = { lat: s.latitud, lng: s.longitud };
+        
+        // Marcador clásico con ícono personalizado por color
+        const marker = new google.maps.Marker({
+            position: position,
+            map: map,
+            title: `Suministro ${s.suministro} - SST: ${s.sst}`,
+            icon: {
+                url: `https://maps.google.com/mapfiles/ms/icons/${getIconColor(s.color)}-dot.png`,
+                scaledSize: new google.maps.Size(32, 32)
+            },
+            animation: google.maps.Animation.DROP,
+            optimized: true
+        });
+
+        bounds.extend(position);
+        markers.push(marker);
+
+        // InfoWindow mejorado (mantener el mismo)
+        const infoContent = `
+            <div class="info-window" style="padding: 12px; min-width: 280px; max-width: 320px;">
+                <h3>${s.suministro}</h3>
+                <div class="info-row">
+                    <span class="info-label">SST:</span>
+                    <span class="info-value" style="color: ${s.color}; font-weight: 700;">${s.sst}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Dirección:</span><br>
+                    <span class="info-value">${s.direccion}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Estado:</span>
+                    <span class="info-value" style="background: ${s.estado_color}20; color: ${s.estado_color}; padding: 2px 8px; border-radius: 4px; font-weight: 600;">
+                        ${s.estado}
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Medidor:</span>
+                    <span class="info-value">${s.medidor}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Potencia:</span>
+                    <span class="info-value">${s.potencia}</span>
+                </div>
+                ${s.contacto !== 'N/A' ? `
+                <div class="info-row" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb;">
+                    <span class="info-label">Contacto:</span>
+                    <span class="info-value">${s.contacto}</span>
+                    ${s.telefono !== 'N/A' ? `<br><span class="info-value">📞 ${s.telefono}</span>` : ''}
+                </div>
+                ` : ''}
+            </div>
+        `;
+
+        const infoWindow = new google.maps.InfoWindow({
+            content: infoContent,
+            maxWidth: 320
+        });
+
+        marker.addListener("click", () => {
+            infoWindow.open(map, marker);
+        });
+
+        // Efecto hover clásico
+        marker.addListener("mouseover", () => {
+            marker.setIcon({
+                url: `https://maps.google.com/mapfiles/ms/icons/${getIconColor(s.color)}.png`,
+                scaledSize: new google.maps.Size(40, 40)
+            });
+        });
+
+        marker.addListener("mouseout", () => {
+            marker.setIcon({
+                url: `https://maps.google.com/mapfiles/ms/icons/${getIconColor(s.color)}-dot.png`,
+                scaledSize: new google.maps.Size(32, 32)
+            });
+        });
+    });
+
+    // Configurar MarkerClusterer (ajustar para marcadores clásicos)
+    markerCluster = new markerClusterer.MarkerClusterer({
+        map,
+        markers,
+        algorithm: new markerClusterer.SuperClusterAlgorithm({ radius: 100 }),
+        renderer: {
+            render: ({ count, position }, stats) => {
+                // Cluster clásico
+                const svg = window.btoa(`
+                    <svg fill="#4285F4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
+                        <circle cx="120" cy="120" r="70" opacity="0.8"/>
+                        <circle cx="120" cy="120" r="50" fill="#4285F4"/>
+                        <circle cx="120" cy="120" r="40" fill="#FFFFFF"/>
+                    </svg>
+                `);
+
+                return new google.maps.Marker({
+                    position,
+                    icon: {
+                        url: `data:image/svg+xml;base64,${svg}`,
+                        scaledSize: new google.maps.Size(45, 45)
+                    },
+                    label: {
+                        text: String(count),
+                        color: "#4285F4",
+                        fontSize: "12px",
+                        fontWeight: "bold"
+                    },
+                    zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
+                });
+            }
+        }
+    });
+
+    // Ajustar vista
+    if (markers.length > 0) {
+        map.fitBounds(bounds);
+        const listener = google.maps.event.addListener(map, 'idle', function() {
+            if (map.getZoom() > 15) {
+                map.setZoom(15);
+            }
+            google.maps.event.removeListener(listener);
+        });
+    }
+
+    // Botón "Ver Todos"
+    document.getElementById('fit-bounds').addEventListener('click', () => {
+        map.fitBounds(bounds);
+    });
+
+    // Generar leyenda
+    generarLeyenda();
+    
+    console.log(`✓ ${markers.length} marcadores creados`);
+}
+
+// Función auxiliar para mapear colores a íconos de Google Maps
+function getIconColor(hexColor) {
+    const colorMap = {
+        '#FF0000': 'red',     // Rojo
+        '#00FF00': 'green',   // Verde
+        '#0000FF': 'blue',    // Azul
+        '#FFFF00': 'yellow',  // Amarillo
+        '#FF00FF': 'purple',  // Púrpura
+        '#00FFFF': 'cyan',    // Cian
+        '#FFA500': 'orange',  // Naranja
+        '#FF1493': 'pink',    // Rosa
+        '#A52A2A': 'brown',   // Marrón
+        '#808080': 'gray'     // Gris
+    };
+    
+    // Convertir a formato Google Maps o usar 'blue' por defecto
+    return colorMap[hexColor.toUpperCase()] || 'blue';
+}
+
+function generarLeyenda() {
+    const legendContent = document.getElementById('legend-content');
+    legendContent.innerHTML = ''; // Limpiar
+    
+    // Ordenar por cantidad descendente
+    sstsInfo.sort((a, b) => b.cantidad - a.cantidad);
+    
+    sstsInfo.forEach(sst => {
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        item.innerHTML = `
+            <div class="legend-color" style="background-color: ${sst.color};"></div>
+            <span class="legend-text">${sst.nombre}</span>
+            <span class="legend-count">${sst.cantidad}</span>
+        `;
+        legendContent.appendChild(item);
+    });
+}
+
+window.gm_authFailure = function() {
+    alert('Error de autenticación con Google Maps. Verifica tu API key.');
+};
+
+
+</script>
+
+<!-- Google Maps API con Clustering -->
+<script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
+<script
+  src="https://maps.googleapis.com/maps/api/js?key={{AIzaSyD7gTXdrE_OpFMUaaNVf54ogzch4dvKpFc}}&callback=initMap&v=weekly    "
+  async defer>
+</script>
+{% endblock %}
+
+

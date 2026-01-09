@@ -20,6 +20,7 @@ urlpatterns = [
     path('suministros/plantilla-importacion/', 
          views.descargar_plantilla_importacion, 
          name='descargar_plantilla_importacion'),
+    path('mapa/suministros/', views.mapa_suministros, name='mapa_suministros'),
 
     #path('dashboard/', views.dashboard, name='dashboard'),
     #path('', views.dashboard, name='dashboard_home'), 

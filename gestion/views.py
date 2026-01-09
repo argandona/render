@@ -1596,3 +1596,101 @@ def importar_excel_suministros(request):
             'message': f'Error procesando el archivo: {str(e)}',
             'traceback': traceback.format_exc()
         })
+        
+ 
+import json
+from django.shortcuts import render
+from django.db.models import Count
+from .models import Suministro
+
+def mapa_suministros(request):
+    # Obtener suministros con prefetch para optimizar
+    qs = Suministro.objects.filter(
+        estado_suministro__estado_suministro='ASIGNADO',
+        latitud__isnull=False,
+        longitud__isnull=False
+    ).exclude(
+        latitud=0,
+        longitud=0
+    ).select_related(
+        'sst', 
+        'estado_suministro'
+    ).values(
+        'suministro',
+        'direccion',
+        'latitud',
+        'longitud',
+        'sst__sst',
+        'sst__id',  # Para agrupar por SST
+        'estado_suministro__estado_suministro',
+        'estado_suministro__color',
+        'medidor',
+        'potencia',
+        'contacto',
+        'telefono'
+    )
+
+    # Generar colores únicos por SST
+    ssts_unicos = list(set([s['sst__id'] for s in qs]))
+    colores_sst = generar_colores_distintos(len(ssts_unicos))
+    mapa_colores = {sst_id: color for sst_id, color in zip(ssts_unicos, colores_sst)}
+
+    suministros = []
+    for s in qs:
+        try:
+            lat = float(s['latitud'])
+            lng = float(s['longitud'])
+            
+            if -90 <= lat <= 90 and -180 <= lng <= 180:
+                suministros.append({
+                    'suministro': s['suministro'],
+                    'direccion': s['direccion'] or '',
+                    'latitud': lat,
+                    'longitud': lng,
+                    'sst': s['sst__sst'] or '',
+                    'sst_id': s['sst__id'],
+                    'color': mapa_colores.get(s['sst__id'], '#3388ff'),
+                    'estado': s['estado_suministro__estado_suministro'],
+                    'estado_color': s['estado_suministro__color'] or '#3388ff',
+                    'medidor': s['medidor'] or 'N/A',
+                    'potencia': s['potencia'] or 'N/A',
+                    'contacto': s['contacto'] or 'N/A',
+                    'telefono': s['telefono'] or 'N/A',
+                })
+        except (ValueError, TypeError):
+            continue
+
+    # Agrupar por SST para la leyenda
+    ssts_info = {}
+    for s in suministros:
+        sst_id = s['sst_id']
+        if sst_id not in ssts_info:
+            ssts_info[sst_id] = {
+                'nombre': s['sst'],
+                'color': s['color'],
+                'cantidad': 0
+            }
+        ssts_info[sst_id]['cantidad'] += 1
+
+    return render(request, "gestion/mapa_suministros.html", {
+        "suministros": json.dumps(suministros),
+        "ssts_info": json.dumps(list(ssts_info.values())),
+        "total": len(suministros)
+    })
+
+
+def generar_colores_distintos(n):
+    """Genera n colores visualmente distintos usando HSL"""
+    import colorsys
+    colores = []
+    for i in range(n):
+        hue = i / n
+        # Saturación y luminosidad fijas para colores vibrantes
+        rgb = colorsys.hsv_to_rgb(hue, 0.8, 0.9)
+        hex_color = '#{:02x}{:02x}{:02x}'.format(
+            int(rgb[0] * 255),
+            int(rgb[1] * 255),
+            int(rgb[2] * 255)
+        )
+        colores.append(hex_color)
+    return colores       
