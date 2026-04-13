@@ -3,7 +3,7 @@ dj-database-url==3.1.0
 Django>=4.2
 et_xmlfile==2.0.0
 gunicorn==23.0.0
-numpy==2.4.0
+numpy==1.26.4
 openpyxl==3.1.5
 packaging==25.0
 pandas==2.3.3
