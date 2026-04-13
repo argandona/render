@@ -1,1 +1,1 @@
-web: gunicorn Encossa.wsgi --log-file -
+web: gunicorn Encossa.wsgi:application --log-file -
